@@ -23,26 +23,45 @@ def valid_server_address(server_address):
         msg = "not a valid server address: {0!r}".format(server_address)
         raise argparse.ArgumentTypeError(msg)
 
-parser = argparse.ArgumentParser()
-parser.add_argument('-t', type=float, default=5.0)
-parser.add_argument('-r', type=int, default=3)
-parser.add_argument('-p', type=int, default=53)
-group = parser.add_mutually_exclusive_group()
-group.add_argument('-ns', action='store_true', default=False)
-group.add_argument('-mx', action='store_true', default=False) 
-parser.add_argument('server', type=valid_server_address)
-parser.add_argument('name', type=str)
+def collect_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-t', type=float, default=5.0)
+    parser.add_argument('-r', type=int, default=3)
+    parser.add_argument('-p', type=int, default=53)
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('-ns', action='store_true', default=False)
+    group.add_argument('-mx', action='store_true', default=False) 
+    parser.add_argument('server', type=valid_server_address)
+    parser.add_argument('name', type=str)
+
+    return  parser.parse_args()
+
+def querry_server(ip, port, timeout, retries, packet):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.sendto(packet, (ip, port))
+    sock.settimeout(timeout)
+    while retries > 0:
+        try:
+            data, addr = sock.recvfrom(1024)
+            print(f"received {data} from {addr}")
+        except socket.timeout:
+            retries -= 1
+            print("timeout")
+            return None
+    
+
+if __name__ == "__main__":
+    args = collect_args()
+    
+    timeout = args.t
+    retries = args.r
+    port = args.p
+    mail_server = args.mx
+    name_server = args.ns
+    ip_address = args.server
+    domain_name = args.name
+
+    print(f"timeout {timeout}\nretries {retries}\nport {port}\nmail_server {mail_server}\nname_server {name_server}\nserver {ip_address}\nname {domain_name}")
 
 
 
-
-args = parser.parse_args()
-
-
-timeout = args.t
-retries = args.r
-port = args.p
-mail_server = args.mx
-name_server = args.ns
-
-print(f"timeout {timeout}\nretries {retries}\nport {port}\nmail_server {mail_server}\nname_server {name_server}\nserver {args.server}\nname {args.name}")
