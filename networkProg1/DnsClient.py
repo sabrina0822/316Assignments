@@ -88,53 +88,112 @@ def create_question(name, QTYPE):
     
 
 def parse_packet_header(packet_data):
-    # Assuming that packet data is in hex
+    # Assuming that packet data is in bits
     # create dictionary to store packet header fields in BITS
     packet_header_fields = {}
 
     # id is the first 16 bits of the packet in the header
     # Take first 4 hex characters and convert to bin
-    packet_header_fields['id'] = bin(packet_data[0:4])
+    packet_header_fields['id'] = '0b' + packet_data[0:16]
 
     # flags are the next 16 bits of the packet in the header
     # | QR | OPCODE | AA | TC | RD | RA | Z | RCODE |
-    flag_bits = bin(packet_data[4:8])
-    packet_header_fields['qr'] = flag_bits[0:1]
-    packet_header_fields['opcode'] = flag_bits[1:5]
-    packet_header_fields['aa'] = flag_bits[5:6]
-    packet_header_fields['tc'] = packet_data[6:7]
-    packet_header_fields['rd'] = packet_data[7:8]
-    packet_header_fields['ra'] = packet_data[8:9]
-    packet_header_fields['z'] = packet_data[9:12]
-    packet_header_fields['rcode'] = packet_data[12:16]
+    packet_header_fields['qr'] = '0b' + packet_data[16:17]
+    packet_header_fields['opcode'] = '0b' + packet_data[17:21]
+    packet_header_fields['aa'] = '0b' + packet_data[21:22]
+    packet_header_fields['tc'] = '0b' + packet_data[22:23]
+    packet_header_fields['rd'] = '0b' + packet_data[23:24]
+    packet_header_fields['ra'] = '0b' + packet_data[24:25]
+    packet_header_fields['z'] = '0b' + packet_data[25:28]
+    packet_header_fields['rcode'] = '0b' + packet_data[28:32]
 
     # QDCOUNT is the next 16 bits specifying the number entries in the question section
-    packet_header_fields['qdcount'] = bin(packet_data[8:12])
+    packet_header_fields['qdcount'] = '0b' + packet_data[32:48]
 
     # ANCOUNT is the next 16 bits specifying the number of resource records in the answer section
-    packet_header_fields['ancount'] = bin(packet_data[12:16])
+    packet_header_fields['ancount'] = '0b' + packet_data[48:64]
     
     # NSCOUNT is the next 16 bits specifying the number of name server resource records in the authority records section
-    packet_header_fields['nscount'] = bin(packet_data[16:20])
+    packet_header_fields['nscount'] = '0b' + packet_data[64:80]
 
     # ARCOUNT is the next 16 bits specifying the number of resource records in the additional records section
-    packet_header_fields['arcount'] = bin(packet_data[20:24])
+    packet_header_fields['arcount'] = '0b' + packet_data[80:96]
 
     return packet_header_fields
 
-def parse_packet_question(packet_data):
-    # Assuming that packet data is in hex
-    # create dictionary to store packet question fields in BITS
+def parse_packet_questions(packet_data):
+    # Assuming that packet data is in bits
+    # create dictionary to store packet questions in BITS
+    # question begins at the 12th octect (96th bit)
     packet_question_fields = {}
 
-    # Question section starts at 25th hex character (index 24)
+    # QNAME is a domain name represented by a sequence of labels, where each label 
+    # begins with a length octet followed by that number of octets. 
+    # The domain name terminates with the zero-length octet, representing the null label of the root
+    octet = 12
+    qname = '0b'
+    while ('0b' + packet_data[octet*8, (octet+1)*8] != '0b00000000'):
+        qname += packet_data[octet*8, (octet+1)*8]
+        octet += 1
+    else:
+        octet += 1
+
+    packet_question_fields['qname'] = '0b' + qname
+
+    # QTYPE is the next 16 bits specifying the type of query
+    packet_question_fields['qtype'] = '0b' + packet_data[octet*8:(octet+1)*8]
+
+    # QCLASS is the next 16 bits specifying the class of query
+    octet += 1
+    packet_question_fields['qclass'] = '0b' + packet_data[octet*8, (octet+1)*8]
+
+    return packet_question_fields, octet+1
+
+def parse_packet_answers(packet_data, starting_octet):
+    # Assuming that packet data is in bits
+    # create dictionary to store packet answers in BITS
+    # Traverse packet data until we reach the answer section that starts with 11
+    packet_answer_fields = {}
+
+    if ('0b' + packet_data[starting_octet*8:starting_octet*8+2] != '0b11'):
+        print("No offset")
+
+    octect_offset = int('0b' + packet_data[starting_octet*8+2:(starting_octet+1)*8], 2)
+
+    current_octet = octect_offset
+    name = '0b'
+    while ('0b' + packet_data[current_octet*8, (current_octet+1)*8] != '0b00000000'):
+        name += packet_data[current_octet*8, (current_octet+1)*8]
+        current_octet += 1
+    else:
+        current_octet += 1
     
-    
-    
-    return packet_question_fields
+    # NAME use offset to find name from question section
+    packet_answer_fields['name'] = name
+
+    # TYPE is the next 16 bits specifying the type of query
+    packet_answer_fields['type'] = '0b' + packet_data[current_octet*8:(current_octet+1)*8]
+
+    # CLASS is the next 16 bits specifying the class of query
+    current_octet += 1
+    packet_answer_fields['class'] = '0b' + packet_data[current_octet*8, (current_octet+1)*8]
+
+    # TTL is the next 32 bits specifying the time to live
+    current_octet += 1
+    packet_answer_fields['ttl'] = '0b' + packet_data[current_octet*8, (current_octet+2)*8]
+
+    # RDLENGTH is the next 16 bits specifying the length of the RDATA field
+    current_octet += 2
+    packet_answer_fields['rdlength'] = '0b' + packet_data[current_octet*8, (current_octet+1)*8]
+
+    # RDATA is the next RDLENTH bits specifying the data
+    current_octet += 1
+    packet_answer_fields['rdata'] = '0b' + packet_data[current_octet*8, (current_octet+int(packet_answer_fields['rdlength'], 2))*8]
+
+    return packet_answer_fields
 
 
-def read_packet(packet_header_fields, id):
+def read_packet(packet, id):
     
     return None 
 
