@@ -192,8 +192,33 @@ def parse_packet_answers(packet_data, starting_octet):
 
     return packet_answer_fields
 
+def print_answer(num_answers, type, alias, IP_address, pref, seconds, auth):
+    print(f"***Answer Section ({num_answers} records)***")
+    type = int(type, 2)
+    type = hex(type)
+    match type:
+        case '0x0001':
+            # IP <tab> [ip address] <tab> [seconds can cache] <tab> [auth | nonauth]
+            print("IP\t" + IP_address + "\t" + seconds + "\t" + auth)
+        case '0x002':
+            # NS <tab> [alias] <tab> [seconds can cache] <tab> [auth | nonauth]
+            print("NS\t" + alias + "\t" + seconds + "\t" + auth)
+        case '0x0005':
+            # CNAME <tab> [alias] <tab> [seconds can cache] <tab> [auth | nonauth]
+            print("CNAME\t" + alias + "\t" + seconds + "\t" + auth)
+        case '0x000f':
+            # MX <tab> [alias] <tab> [pref] <tab> [seconds can cache] <tab> [auth | nonauth]
+            print("MX\t" + alias + "\t" + pref + "\t" + seconds + "\t" + auth)
+        
+
 
 def read_packet(packet, id):
+
+    packet_header_fields = parse_packet_header(packet)
+    packet_question_fields, current_octet = parse_packet_questions(packet)
+    packet_answer_fields = parse_packet_answers(packet, current_octet)
+
+    
     
     return None 
 
