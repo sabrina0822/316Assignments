@@ -84,8 +84,6 @@ def create_question(name, QTYPE):
     QCLASS = "0000000000000001"
 
     return QNAME+"00"+QTYPE+QCLASS
-    
-    
 
 def parse_packet_header(packet_data):
     # Assuming that packet data is in bits
@@ -209,8 +207,19 @@ def print_answer(num_answers, type, alias, IP_address, pref, seconds, auth):
         case '0x000f':
             # MX <tab> [alias] <tab> [pref] <tab> [seconds can cache] <tab> [auth | nonauth]
             print("MX\t" + alias + "\t" + pref + "\t" + seconds + "\t" + auth)
-        
 
+def print_additional(num_answers):
+    print(f"***Additional Section ({num_answers} records)***")
+    
+    if num_answers == 0:
+        print("NOTFOUND")
+    
+    for i in range(num_answers):
+        try:
+            # TODO print record
+            print("records")
+        except Exception as e:
+            print("ERROR\t" + e)
 
 def read_packet(packet, id):
 
