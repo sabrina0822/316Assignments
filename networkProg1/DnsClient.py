@@ -2,6 +2,7 @@ import socket
 import argparse
 import random
 from re import match
+from time import time_ns
 
 '''
 python DnsClient [-t timeout] [-r max-retries] [-p port] [-mx | nx] @server name
@@ -39,16 +40,23 @@ def collect_args():
 
 def querry_server(ip, port, timeout, retries, packet):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    start_time = time_ns()
     sock.sendto(packet, (ip, port))
     sock.settimeout(timeout)
-    while retries > 0:
+    while retries - count > 0:
+        count = 0
         try:
-            data, addr = sock.recvfrom(1024)
-            print(f"received {data} from {addr}")
+            data, _ = sock.recvfrom(1024)
+            end_time = time_ns()
+            print(f"Response received after {end_time - start_time} seconds ({count} retries)")
+            return data
         except socket.timeout:
-            retries -= 1
-            print("timeout")
+            count += 1
+            print("timeout") # TODO remove
             return None
+    else:
+        print(f"ERROR\tMaximum number of retries {retries} exceeded")
+        return None
     
 def random_id():
     return random.getrandbits(16) #16 bit id in decimal
@@ -208,18 +216,15 @@ def print_answer(num_answers, type, alias, IP_address, pref, seconds, auth):
             # MX <tab> [alias] <tab> [pref] <tab> [seconds can cache] <tab> [auth | nonauth]
             print("MX\t" + alias + "\t" + pref + "\t" + seconds + "\t" + auth)
 
-def print_additional(num_answers):
-    print(f"***Additional Section ({num_answers} records)***")
+def print_additional(num_records):
+    print(f"***Additional Section ({num_records} records)***")
     
-    if num_answers == 0:
+    if num_records == 0:
         print("NOTFOUND")
     
-    for i in range(num_answers):
-        try:
-            # TODO print record
-            print("records")
-        except Exception as e:
-            print("ERROR\t" + e)
+    for i in range(num_records):
+            print("records") # TODO
+ 
 
 def read_packet(packet, id):
 
@@ -227,9 +232,44 @@ def read_packet(packet, id):
     packet_question_fields, current_octet = parse_packet_questions(packet)
     packet_answer_fields = parse_packet_answers(packet, current_octet)
 
+    # check if id matches
+    if packet_header_fields['id'] != id:
+        print("ERROR\tID mismatch")
+        return
+    
+    # check if response is 1
+    if packet_header_fields['qr'] != '0b1':
+        print("ERROR\tNot a response")
+        return
+    
+    # Check if server supports recursion
+    if packet_header_fields['rd'] != '0b1':
+        print("ERROR\tRecursion not supported")
+        return
+
+    # Check if response is valid
+    match packet_header_fields['rcode']:
+        case '0b0000':
+            print("OK") # TODO remove
+        case '0b0001':
+            print("ERROR\tFormat error: the name server was unable to interpret the query")
+        case '0b0010':
+            print("ERROR\tServer failure: the name server was unable to process this query due to a problem with the name server")
+        case '0b0011':
+            print("NOTFOUND")
+        case '0b0100':
+            print("ERROR\tNot Implemented: the name server does not support the requested kind of query")
+        case '0b0101':
+            print("ERROR\tRefused: the name server refuses to perform the specified operation for policy reasons")
+        case _:
+            print("ERROR\tUnknown error")
     
     
-    return None 
+
+    
+
+
+
 
 if __name__ == "__main__":
     args = collect_args()
@@ -246,7 +286,7 @@ if __name__ == "__main__":
     
     question_packet = create_packet()
 
-    response_packet = querry_server(ip_address, port, timeout, retries, question_packet)
+    response_packet, time = querry_server(ip_address, port, timeout, retries, question_packet)
 
     read_packet(response_packet, packet_id)
     
