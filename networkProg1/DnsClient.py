@@ -41,22 +41,23 @@ def collect_args():
 def querry_server(ip, port, timeout, retries, packet):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     start_time = time_ns()
-    sock.sendto(packet, (ip, port))
+    sock.sendto(packet.encode(), (ip, port))
     sock.settimeout(timeout)
+    count = 0
     while retries - count > 0:
-        count = 0
         try:
             data, _ = sock.recvfrom(1024)
+            data = data.decode()
             end_time = time_ns()
             print(f"Response received after {end_time - start_time} seconds ({count} retries)")
-            return data
+            return data, (end_time - start_time)
         except socket.timeout:
             count += 1
             print("timeout") # TODO remove
-            return None
+            return None, None
     else:
         print(f"ERROR\tMaximum number of retries {retries} exceeded")
-        return None
+        return None, None
     
 def random_id():
     return random.getrandbits(16) #16 bit id in decimal
@@ -292,7 +293,8 @@ if __name__ == "__main__":
 
     response_packet, time = querry_server(ip_address, port, timeout, retries, question_packet)
 
-    read_packet(response_packet, packet_id)
+    if (response_packet is not None):
+        read_packet(response_packet, packet_id)
     
 
     print(f"timeout {timeout}\nretries {retries}\nport {port}\nmail_server {mail_server}\nname_server {name_server}\nserver {ip_address}\nname {domain_name}")
