@@ -66,10 +66,9 @@ def random_id():
 def convert_to_hex(id):
     return hex(id)[2:].zfill(4) #zfill pads with 0s to make 16 bits
     
-def create_header(): 
+def create_header(id): 
     #headers consist of a 16 bit id, 16 bit flags, 16 bit question count, 16 bit answer count, 16 bit authority count, 16 bit additional count
     #in a flag, | QR | OPCODE (0) | AA (0)| TC (0)| RD | RA | Z | RCODE |
-    id = random_id()
     array = [1, 0, 0, 1, 0, 0, 0, 0, 0, 0]
     #print ((bin(packet_id)[2:].zfill(16)) + '0000000100000000'+'0000000000000001'+'0000000000000000'+'0000000000000000'+'0000000000000000' )
     #header = int((bin(packet_id)[2:].zfill(16)) + '0000000100000000'+'0000000000000001'+'0000000000000000'+'0000000000000000'+'0000000000000000', 2)
@@ -287,12 +286,13 @@ if __name__ == "__main__":
     print('port: ', port)
     mail_server = args.mx
     name_server = args.ns
-    ip_address = args.server
+    ip_address = args.server[1:]
     print(ip_address)
     domain_name = args.name
+    id = random_id()
 
     #header section 
-    header = create_header()
+    header = create_header(id)
     print (header)
 
     #question section
@@ -300,10 +300,9 @@ if __name__ == "__main__":
     question_packet = header + create_question(domain_name, server_type)
     print('question packet')
     print(question_packet)
-    response_packet, time = querry_server("8.8.8.8", port, timeout, retries, question_packet)
+    response_packet, time = querry_server(ip_address, port, timeout, retries, question_packet)
 
-    #if (response_packet is not None):
-        #read_packet(response_packet, packet_id)
+    read_packet(response_packet, id)
     
 
     print(f"timeout {timeout}\nretries {retries}\nport {port}\nmail_server {mail_server}\nname_server {name_server}\nserver {ip_address}\nname {domain_name}")
