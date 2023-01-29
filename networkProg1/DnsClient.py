@@ -1,3 +1,4 @@
+import secrets
 import socket 
 import argparse
 import random
@@ -41,13 +42,13 @@ def collect_args():
 def querry_server(ip, port, timeout, retries, packet):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     start_time = time_ns()
-    sock.sendto(packet.encode(), (ip, port))
+    sock.sendto(packet, (ip, port))
     sock.settimeout(timeout)
     count = 0
     while retries - count > 0:
         try:
             data, _ = sock.recvfrom(1024)
-            data = data.decode()
+            print("data", data)
             end_time = time_ns()
             print(f"Response received after {end_time - start_time} seconds ({count} retries)")
             return data, (end_time - start_time)
@@ -60,34 +61,40 @@ def querry_server(ip, port, timeout, retries, packet):
         return None, None
     
 def random_id():
-    return random.getrandbits(16) #16 bit id in decimal
+    return (secrets.token_bytes(2))
 #converts to hex, then removes first two numbers to get rid of 0x
 def convert_to_hex(id):
     return hex(id)[2:].zfill(4) #zfill pads with 0s to make 16 bits
     
-def create_header(id): 
+def create_header(): 
     #headers consist of a 16 bit id, 16 bit flags, 16 bit question count, 16 bit answer count, 16 bit authority count, 16 bit additional count
     #in a flag, | QR | OPCODE (0) | AA (0)| TC (0)| RD | RA | Z | RCODE |
-    header = "0b" + (str(bin(packet_id)[2:].zfill(16))) + "0000000100000000"+"0000000000000001"+"0000000000000000"+"0000000000000000"+"0000000000000000"
-    return header
+    id = random_id()
+    array = [1, 0, 0, 1, 0, 0, 0, 0, 0, 0]
+    #print ((bin(packet_id)[2:].zfill(16)) + '0000000100000000'+'0000000000000001'+'0000000000000000'+'0000000000000000'+'0000000000000000' )
+    #header = int((bin(packet_id)[2:].zfill(16)) + '0000000100000000'+'0000000000000001'+'0000000000000000'+'0000000000000000'+'0000000000000000', 2)
+    #header = hex(header)
+    return (id + bytes(array))
+
 
 #parameters, domain name, qtype (hex number representing type of query)
 def create_question(name, QTYPE):
     #QNAME is a domain name, sequence of lables where each label begins with a length octet followed by that number of octets
     #the domain name terminates with the zero length octect (null label of the root)
-    QNAME = ""
+    QNAME = []
     for i in name.split("."):
-        length = convert_to_hex(len(i))
-        ascii = i.encode().hex()
-        QNAME += length + ascii
+        length = len(i)
+        ascii = i.encode()
+        QNAME += [length] + list(ascii)
     #QTYPE, 16 bit code specifying the type of query
         # 0x0001 = A
         # 0x0002 = NS
         # 0x000f = MX   
     #QCLASS, 16 bit code specifying the class of query (always use 0x0001)
-    QCLASS = "0000000000000001"
+    QCLASS = 1
 
-    return "0b" + QNAME+"00"+QTYPE+QCLASS
+    question = QNAME + [0, 1, QTYPE, QCLASS]
+    return bytes(question)
 
 def parse_packet_header(packet_data):
     # Assuming that packet data is in bits
@@ -265,11 +272,11 @@ def read_packet(packet, id):
     
 def qtype(mail_server, name_server):
     if mail_server is True: 
-        return "0b" + "0000000000001111"
+        return 0x000f
     elif name_server is True:
-        return "0b" + "0000000000000010"
+        return 0x0002
     else: 
-        return "0b" + "0000000000000001"
+        return 0x0001
 
 if __name__ == "__main__":
     args = collect_args()
@@ -277,24 +284,26 @@ if __name__ == "__main__":
     timeout = args.t
     retries = args.r
     port = args.p
+    print('port: ', port)
     mail_server = args.mx
     name_server = args.ns
     ip_address = args.server
+    print(ip_address)
     domain_name = args.name
 
     #header section 
-    packet_id = random_id(); 
-    header = create_header(id)
+    header = create_header()
+    print (header)
 
     #question section
     server_type = qtype(mail_server, name_server)
-    question_packet = create_question(domain_name, server_type)
-    
+    question_packet = header + create_question(domain_name, server_type)
+    print('question packet')
+    print(question_packet)
+    response_packet, time = querry_server("8.8.8.8", port, timeout, retries, question_packet)
 
-    response_packet, time = querry_server(ip_address, port, timeout, retries, question_packet)
-
-    if (response_packet is not None):
-        read_packet(response_packet, packet_id)
+    #if (response_packet is not None):
+        #read_packet(response_packet, packet_id)
     
 
     print(f"timeout {timeout}\nretries {retries}\nport {port}\nmail_server {mail_server}\nname_server {name_server}\nserver {ip_address}\nname {domain_name}")
