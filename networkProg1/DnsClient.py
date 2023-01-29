@@ -60,11 +60,6 @@ def querry_server(ip, port, timeout, retries, packet):
     
 def random_id():
     return random.getrandbits(16) #16 bit id in decimal
-
-#converts to binary, then removes first two numbers to get rid of 0b
-def convert_to_bits(id):
-    return bin(id)[2:].zfill(16) #zfill pads with 0s to make 16 bits
-
 #converts to hex, then removes first two numbers to get rid of 0x
 def convert_to_hex(id):
     return hex(id)[2:].zfill(4) #zfill pads with 0s to make 16 bits
@@ -72,7 +67,7 @@ def convert_to_hex(id):
 def create_header(id): 
     #headers consist of a 16 bit id, 16 bit flags, 16 bit question count, 16 bit answer count, 16 bit authority count, 16 bit additional count
     #in a flag, | QR | OPCODE (0) | AA (0)| TC (0)| RD | RA | Z | RCODE |
-    header = convert_to_bits(id)+"0000000100000000"+"0000000000000001"+"0000000000000000"+"0000000000000000"+"0000000000000000"
+    header = (str(bin(packet_id)[2:].zfill(16))) + "0000000100000000"+"0000000000000001"+"0000000000000000"+"0000000000000000"+"0000000000000000"
     return header
 
 #parameters, domain name, qtype (hex number representing type of query)
@@ -267,9 +262,13 @@ def read_packet(packet, id):
     
 
     
-
-
-
+def qtype(mail_server, name_server):
+    if mail_server is True: 
+        return "0000000000001111"
+    elif name_server is True:
+        return "0000000000000010"
+    else: 
+        return "0000000000000001"
 
 if __name__ == "__main__":
     args = collect_args()
@@ -282,9 +281,14 @@ if __name__ == "__main__":
     ip_address = args.server
     domain_name = args.name
 
-    packet_id = random_id()
+    #header section 
+    packet_id = random_id(); 
+    header = create_header(id)
+
+    #question section
+    server_type = qtype(mail_server, name_server)
+    question_packet = create_question(domain_name, server_type)
     
-    question_packet = create_packet()
 
     response_packet, time = querry_server(ip_address, port, timeout, retries, question_packet)
 
