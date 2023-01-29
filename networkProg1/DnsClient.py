@@ -68,7 +68,7 @@ def convert_to_hex(id):
 def create_header(id): 
     #headers consist of a 16 bit id, 16 bit flags, 16 bit question count, 16 bit answer count, 16 bit authority count, 16 bit additional count
     #in a flag, | QR | OPCODE (0) | AA (0)| TC (0)| RD | RA | Z | RCODE |
-    header = (str(bin(packet_id)[2:].zfill(16))) + "0000000100000000"+"0000000000000001"+"0000000000000000"+"0000000000000000"+"0000000000000000"
+    header = "0b" + (str(bin(packet_id)[2:].zfill(16))) + "0000000100000000"+"0000000000000001"+"0000000000000000"+"0000000000000000"+"0000000000000000"
     return header
 
 #parameters, domain name, qtype (hex number representing type of query)
@@ -87,7 +87,7 @@ def create_question(name, QTYPE):
     #QCLASS, 16 bit code specifying the class of query (always use 0x0001)
     QCLASS = "0000000000000001"
 
-    return QNAME+"00"+QTYPE+QCLASS
+    return "0b" + QNAME+"00"+QTYPE+QCLASS
 
 def parse_packet_header(packet_data):
     # Assuming that packet data is in bits
@@ -265,11 +265,11 @@ def read_packet(packet, id):
     
 def qtype(mail_server, name_server):
     if mail_server is True: 
-        return "0000000000001111"
+        return "0b" + "0000000000001111"
     elif name_server is True:
-        return "0000000000000010"
+        return "0b" + "0000000000000010"
     else: 
-        return "0000000000000001"
+        return "0b" + "0000000000000001"
 
 if __name__ == "__main__":
     args = collect_args()
