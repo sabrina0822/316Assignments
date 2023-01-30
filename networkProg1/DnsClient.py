@@ -38,7 +38,7 @@ def collect_args():
 
     return  parser.parse_args()
 
-def querry_server(ip, port, timeout, retries, packet): # TODO fix retry loop to resend the packet when a timeout happens
+def querry_server(ip, port, timeout, retries, packet): 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     start_time = time_ns()
     sock.sendto(packet, (ip, port))
@@ -55,7 +55,8 @@ def querry_server(ip, port, timeout, retries, packet): # TODO fix retry loop to 
         except socket.timeout:
             count += 1
             print("timeout") # TODO remove
-            return None, None
+            if (count > retries): 
+                return None, None
     else:
         print(f"ERROR\tMaximum number of retries {retries} exceeded")
         return None, None
@@ -73,9 +74,6 @@ def create_header(id): # TODO clean up comments
     #headers consist of a 16 bit id, 16 bit flags, 16 bit question count, 16 bit answer count, 16 bit authority count, 16 bit additional count
     #in a flag, | QR | OPCODE (0) | AA (0)| TC (0)| RD | RA | Z | RCODE |
     array = [1, 0, 0, 1, 0, 0, 0, 0, 0, 0]
-    #print ((bin(packet_id)[2:].zfill(16)) + '0000000100000000'+'0000000000000001'+'0000000000000000'+'0000000000000000'+'0000000000000000' )
-    #header = int((bin(packet_id)[2:].zfill(16)) + '0000000100000000'+'0000000000000001'+'0000000000000000'+'0000000000000000'+'0000000000000000', 2)
-    #header = hex(header)
     return (id + bytes(array))
 
 
@@ -209,7 +207,17 @@ def print_record(num_records, type, alias, IP_address, pref, seconds, auth): # T
     type = int(type, 2)
     type = hex(type)
     seconds = int(seconds, 2)
-    # TODO properly convert IP from bytes to string
+
+    # converting the IP address to decimal    
+    iterator = 0 
+    ip = "" #initialize ip variable 
+    IP_address = IP_address[2:] #need to truncate the first two bits to ignore the 0b
+    while iterator < len(IP_address):
+        ip += str(int(IP_address[iterator:iterator+8], 2)) + "."
+        iterator += 8        
+    IP_address = ip[:-1] #TODO, this isn't the greatest way honestly but it works so 
+    print(ip)
+
     # TODO interpret name 
     match auth:
         case '0b0':
@@ -234,21 +242,27 @@ def print_record(num_records, type, alias, IP_address, pref, seconds, auth): # T
 def read_packet(packet, id):
 
     # convert packet to binary
+    print('non binary, ', packet)
     packet = convert_bytes_to_bin(packet)
-
+    print(packet)
     #remove binary tag
     packet = packet[2:]
 
     packet_header_fields = parse_packet_header(packet)
+    print(packet_header_fields)
     packet_question_fields, current_octet = parse_packet_questions(packet)
 
     # parse answers (can be multiple if qdcount > 1)
     packet_answer_fields = {}
-    for answer_count in range(int(packet_header_fields['qdcount'], 2)):
+    for answer_count in range(int(packet_header_fields['ancount'], 2)):
+        print(answer_count)
+        print("packet: ", packet, "\ncurrent_octet ", current_octet, "\nanswer_count ", answer_count)
         packet_record_fields, current_octet = parse_packet_records(packet, current_octet, 'answer', answer_count)
         packet_answer_fields[f'{answer_count}'] =  packet_record_fields
+        print('looping')
     
     # TODO parse additional records
+    print('here homie')
 
     # check if id matches
     if packet_header_fields['id'] != convert_bytes_to_bin(id):
@@ -333,6 +347,10 @@ if __name__ == "__main__":
     print(ip_address)
     response_packet, time = querry_server(ip_address, port, timeout, retries, question_packet)
 
-    read_packet(response_packet, id)
+    if (response_packet == None):
+        print("ERROR\tTimeout")
+    else: 
+        print('here')
+        read_packet(response_packet, id)
 
 
