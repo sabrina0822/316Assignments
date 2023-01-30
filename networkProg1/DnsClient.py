@@ -64,8 +64,11 @@ def querry_server(ip, port, timeout, retries, packet):
 def random_id():
     return (secrets.token_bytes(2))
 #converts to hex, then removes first two numbers to get rid of 0x
-def convert_to_hex(id):
+def convert_to_hex(id): # ! never used
     return hex(id)[2:].zfill(4) #zfill pads with 0s to make 16 bits
+
+def convert_bytes_to_bin(num):
+    return bin(int.from_bytes(num, byteorder='big'))
     
 def create_header(id): 
     #headers consist of a 16 bit id, 16 bit flags, 16 bit question count, 16 bit answer count, 16 bit authority count, 16 bit additional count
@@ -91,9 +94,9 @@ def create_question(name, QTYPE):
         # 0x0002 = NS
         # 0x000f = MX   
     #QCLASS, 16 bit code specifying the class of query (always use 0x0001)
-    QCLASS = 1
+    QCLASS = [0, 1]
 
-    question = QNAME + [0, 1, QTYPE, QCLASS]
+    question = QNAME + [0] + QTYPE + QCLASS
     return bytes(question)
 
 def parse_packet_header(packet_data):
@@ -203,20 +206,28 @@ def parse_packet_answers(packet_data, starting_octet):
     return packet_answer_fields
 
 def print_answer(num_answers, type, alias, IP_address, pref, seconds, auth):
-    print(f"***Answer Section ({num_answers} records)***")
+    num_answers = int(num_answers, 2)
     type = int(type, 2)
     type = hex(type)
+    seconds = int(seconds, 2)
+    match auth:
+        case '0b0':
+            auth = 'auth'
+        case '0b1':
+            auth = 'nonauth'
+    print(f"***Answer Section ({num_answers} records)***")
+    
     match type:
-        case '0x0001':
+        case '0x1':
             # IP <tab> [ip address] <tab> [seconds can cache] <tab> [auth | nonauth]
-            print("IP\t" + IP_address + "\t" + seconds + "\t" + auth)
-        case '0x002':
+            print("IP\t" + IP_address + "\t" + str(seconds) + "\t" + str(auth))
+        case '0x2':
             # NS <tab> [alias] <tab> [seconds can cache] <tab> [auth | nonauth]
             print("NS\t" + alias + "\t" + seconds + "\t" + auth)
-        case '0x0005':
+        case '0x5':
             # CNAME <tab> [alias] <tab> [seconds can cache] <tab> [auth | nonauth]
             print("CNAME\t" + alias + "\t" + seconds + "\t" + auth)
-        case '0x000f':
+        case '0xf':
             # MX <tab> [alias] <tab> [pref] <tab> [seconds can cache] <tab> [auth | nonauth]
             print("MX\t" + alias + "\t" + pref + "\t" + seconds + "\t" + auth)
 
@@ -232,6 +243,9 @@ def print_additional(num_records):
 
 def read_packet(packet, id):
 
+    # convert packet to binary
+    packet = convert_bytes_to_bin(packet)
+
     #remove binary tag
     packet = packet[2:]
 
@@ -240,7 +254,7 @@ def read_packet(packet, id):
     packet_answer_fields = parse_packet_answers(packet, current_octet)
 
     # check if id matches
-    if packet_header_fields['id'] != id:
+    if packet_header_fields['id'] != convert_bytes_to_bin(id):
         print("ERROR\tID mismatch")
         return
     
@@ -271,16 +285,18 @@ def read_packet(packet, id):
         case _:
             print("ERROR\tUnknown error")
     
+    print_answer(packet_header_fields['ancount'], packet_answer_fields['type'], packet_answer_fields['name'], packet_answer_fields['rdata'], '0b00', packet_answer_fields['ttl'], packet_header_fields['aa'])
+    
     
 
     
 def qtype(mail_server, name_server):
     if mail_server is True: 
-        return 0x000f
+        return [0, 0xf]
     elif name_server is True:
-        return 0x0002
+        return [0, 0x2]
     else: 
-        return 0x0001
+        return [0, 0x1]
 
 if __name__ == "__main__":
     args = collect_args()
@@ -307,10 +323,6 @@ if __name__ == "__main__":
     print(question_packet)
     response_packet, time = querry_server(ip_address, port, timeout, retries, question_packet)
 
-    read_packet(bin(int(response_packet.hex(), base=16)), id)
-    
-
-    print(f"timeout {timeout}\nretries {retries}\nport {port}\nmail_server {mail_server}\nname_server {name_server}\nserver {ip_address}\nname {domain_name}")
-
+    read_packet(response_packet, id)
 
 
