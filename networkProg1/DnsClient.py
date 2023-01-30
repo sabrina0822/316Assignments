@@ -205,7 +205,17 @@ def parse_packet_records(packet_data, starting_octet, record_type, record_count)
 
     return packet_record_fields, current_octet+int(packet_record_fields['rdlength'], 2) + 1
 
-def print_record(num_records, type, alias, IP_address, pref, seconds, auth): # TODO make this so it can print multiple records
+def read_rdata(data):
+     # converting the IP address to decimal    
+    iterator = 0 
+    result = "" #initialize ip variable 
+    data = data[2:] #need to truncate the first two bits to ignore the 0b
+    while iterator < len(data):
+        result += str(int(data[iterator:iterator+8], 2)) + "."
+        iterator += 8        
+    return result[:-1] #TODO, this isn't the greatest way honestly but it works so 
+
+def print_record(num_records, type, rdata, seconds, auth): # TODO make this so it can print multiple records
     if num_records == 0:
         print("NOTFOUND")
     num_records = int(num_records, 2)
@@ -213,14 +223,7 @@ def print_record(num_records, type, alias, IP_address, pref, seconds, auth): # T
     type = hex(type)
     seconds = int(seconds, 2)
 
-    # converting the IP address to decimal    
-    iterator = 0 
-    ip = "" #initialize ip variable 
-    IP_address = IP_address[2:] #need to truncate the first two bits to ignore the 0b
-    while iterator < len(IP_address):
-        ip += str(int(IP_address[iterator:iterator+8], 2)) + "."
-        iterator += 8        
-    IP_address = ip[:-1] #TODO, this isn't the greatest way honestly but it works so 
+   
 
     # TODO interpret name 
     match auth:
@@ -231,17 +234,30 @@ def print_record(num_records, type, alias, IP_address, pref, seconds, auth): # T
     
     match type:
         case '0x1':
+            #read ip address from rdata
+            ip_address = read_rdata(rdata) 
+
             # IP <tab> [ip address] <tab> [seconds can cache] <tab> [auth | nonauth]
-            print("IP\t" + IP_address + "\t" + str(seconds) + "\t" + str(auth))
-        case '0x2':
+            print("IP\t" + ip_address + "\t" + str(seconds) + "\t" + str(auth))
+
+        case '0x2': 
+            # Read name server from rdata
+            name_server = read_rdata(rdata)
+
             # NS <tab> [alias] <tab> [seconds can cache] <tab> [auth | nonauth]
-            print("NS\t" + alias + "\t" + seconds + "\t" + auth)
+            print("NS\t" + name_server + "\t" + seconds + "\t" + auth)
         case '0x5':
+            # Read canonical name from rdata
+            alias = read_rdata(rdata)
+
             # CNAME <tab> [alias] <tab> [seconds can cache] <tab> [auth | nonauth]
             print("CNAME\t" + alias + "\t" + seconds + "\t" + auth)
         case '0xf':
+            # Read mail exchange from rdata
+            pref = int(rdata[0:18])
+            dom_name = read_rdata(rdata[18:])
             # MX <tab> [alias] <tab> [pref] <tab> [seconds can cache] <tab> [auth | nonauth]
-            print("MX\t" + alias + "\t" + pref + "\t" + seconds + "\t" + auth)
+            print("MX\t" + dom_name + "\t" + pref + "\t" + seconds + "\t" + auth)
 
 def read_packet(packet, id):
 
@@ -254,7 +270,7 @@ def read_packet(packet, id):
     print('header fields: ', packet_header_fields)
     packet_question_fields, current_octet = parse_packet_questions(packet)
 
-    # parse answers (can be multiple if qdcount > 1)
+    # parse answers (can be multiple if ancount > 1)
     packet_answer_fields = {}
     for answer_count in range(int(packet_header_fields['ancount'], 2)):
         packet_record_fields, current_octet = parse_packet_records(packet, current_octet, 'answer', answer_count)
@@ -274,7 +290,7 @@ def read_packet(packet, id):
         return
     
     # Check if server supports recursion
-    if packet_header_fields['rd'] != '0b1':
+    if int(packet_header_fields['ra'], 2) != 1:
         print("ERROR\tRecursion not supported")
         return
 
@@ -303,7 +319,7 @@ def read_packet(packet, id):
         if int(packet_answer_fields[f'{i}']['class'], 2) != 1:
             print("ERROR\tClass mismatch")
             return
-        print_record(packet_header_fields['ancount'], packet_answer_fields[f'{i}']['type'], packet_answer_fields[f'{i}']['name'], packet_answer_fields[f'{i}']['rdata'], '0b00', packet_answer_fields[f'{i}']['ttl'], packet_header_fields['aa'])
+        print_record(packet_header_fields['ancount'], packet_answer_fields[f'{i}']['type'], packet_answer_fields[f'{i}']['rdata'], packet_answer_fields[f'{i}']['ttl'], packet_header_fields['aa'])
    
     if (int(packet_header_fields['arcount'], 2) != 0):
         print(f"***Additional Section ({int(packet_header_fields['arcount'], 2)} records)***")
@@ -313,9 +329,9 @@ def read_packet(packet, id):
 
     
 def qtype(mail_server, name_server):
-    if mail_server is True: 
-        return [0, 0xf]
-    elif name_server is True:
+    if mail_server: 
+        return [0, 15]
+    elif name_server:
         return [0, 0x2]
     else: 
         return [0, 0x1]

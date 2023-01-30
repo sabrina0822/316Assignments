@@ -11,7 +11,7 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "args": ["-t", "10", "@8.8.8.8", "www.mcgill.ca"],
+            "args": ["-t", "10", "-r", "10", "@132.206.44.69", "mail.mcgill.ca"],
         }
     ]
 }
