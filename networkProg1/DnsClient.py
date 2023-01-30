@@ -1,7 +1,6 @@
 import secrets
 import socket 
 import argparse
-import random
 from re import match
 from time import time_ns
 
@@ -18,7 +17,7 @@ python DnsClient [-t timeout] [-r max-retries] [-p port] [-mx | nx] @server name
 
 def valid_server_address(server_address):
     try:
-        if match(r'@*.*.*.*', server_address): # TODO add better regex for valid IP address if wanted
+        if match(r'@*.*.*.*', server_address): # TODO add better regex for valid IP address *if wanted*
             return server_address
         else:
             raise ValueError
@@ -39,7 +38,7 @@ def collect_args():
 
     return  parser.parse_args()
 
-def querry_server(ip, port, timeout, retries, packet):
+def querry_server(ip, port, timeout, retries, packet): # TODO fix retry loop to resend the packet when a timeout happens
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     start_time = time_ns()
     sock.sendto(packet, (ip, port))
@@ -70,7 +69,7 @@ def convert_to_hex(id): # ! never used
 def convert_bytes_to_bin(num):
     return bin(int.from_bytes(num, byteorder='big'))
     
-def create_header(id): 
+def create_header(id): # TODO clean up comments
     #headers consist of a 16 bit id, 16 bit flags, 16 bit question count, 16 bit answer count, 16 bit authority count, 16 bit additional count
     #in a flag, | QR | OPCODE (0) | AA (0)| TC (0)| RD | RA | Z | RCODE |
     array = [1, 0, 0, 1, 0, 0, 0, 0, 0, 0]
@@ -81,7 +80,7 @@ def create_header(id):
 
 
 #parameters, domain name, qtype (hex number representing type of query)
-def create_question(name, QTYPE):
+def create_question(name, QTYPE): # TODO clean up comments
     #QNAME is a domain name, sequence of lables where each label begins with a length octet followed by that number of octets
     #the domain name terminates with the zero length octect (null label of the root)
     QNAME = []
@@ -144,23 +143,22 @@ def parse_packet_questions(packet_data):
     # The domain name terminates with the zero-length octet, representing the null label of the root
     octet = 12
     qname = '0b'
-    print('0b' + packet_data[octet*8:(octet+1)*8])
     while (('0b' + packet_data[octet*8:(octet+1)*8]) != '0b00000000'):
         qname += packet_data[octet*8:(octet+1)*8]
         octet += 1
     else:
         octet += 1
 
-    packet_question_fields['qname'] = '0b' + qname
+    packet_question_fields['qname'] = qname
 
     # QTYPE is the next 16 bits specifying the type of query
-    packet_question_fields['qtype'] = '0b' + packet_data[octet*8:(octet+1)*8]
+    packet_question_fields['qtype'] = '0b' + packet_data[octet*8:(octet+2)*8]
 
     # QCLASS is the next 16 bits specifying the class of query
-    octet += 1
-    packet_question_fields['qclass'] = '0b' + packet_data[octet*8:(octet+1)*8]
+    octet += 2
+    packet_question_fields['qclass'] = '0b' + packet_data[octet*8:(octet+2)*8]
 
-    return packet_question_fields, octet+1
+    return packet_question_fields, octet+2
 
 def parse_packet_answers(packet_data, starting_octet):
     # Assuming that packet data is in bits
@@ -168,48 +166,53 @@ def parse_packet_answers(packet_data, starting_octet):
     # Traverse packet data until we reach the answer section that starts with 11
     packet_answer_fields = {}
 
-    if ('0b' + packet_data[starting_octet*8:starting_octet*8+2] != '0b11'):
-        print("No offset")
-
-    octect_offset = int('0b' + packet_data[starting_octet*8+2:(starting_octet+1)*8], 2)
-
-    current_octet = octect_offset
+    current_octet = starting_octet
     name = '0b'
+    offset = False
     while ('0b' + packet_data[current_octet*8:(current_octet+1)*8] != '0b00000000'):
+        if ('0b' + packet_data[current_octet*8:current_octet*8+2] == '0b11'):
+            current_octet = int('0b' + packet_data[starting_octet*8+2:(starting_octet+2)*8], 2)
+            offset = True
+
         name += packet_data[current_octet*8:(current_octet+1)*8]
         current_octet += 1
     else:
-        current_octet += 1
+        if offset:
+            current_octet = starting_octet + 2
+        else:
+            current_octet += 1
     
     # NAME use offset to find name from question section
     packet_answer_fields['name'] = name
 
     # TYPE is the next 16 bits specifying the type of query
-    packet_answer_fields['type'] = '0b' + packet_data[current_octet*8:(current_octet+1)*8]
+    packet_answer_fields['type'] = '0b' + packet_data[current_octet*8:(current_octet+2)*8]
 
     # CLASS is the next 16 bits specifying the class of query
-    current_octet += 1
-    packet_answer_fields['class'] = '0b' + packet_data[current_octet*8:(current_octet+1)*8]
+    current_octet += 2
+    packet_answer_fields['class'] = '0b' + packet_data[current_octet*8:(current_octet+2)*8]
 
     # TTL is the next 32 bits specifying the time to live
-    current_octet += 1
-    packet_answer_fields['ttl'] = '0b' + packet_data[current_octet*8:(current_octet+2)*8]
+    current_octet += 2
+    packet_answer_fields['ttl'] = '0b' + packet_data[current_octet*8:(current_octet+4)*8]
 
     # RDLENGTH is the next 16 bits specifying the length of the RDATA field
-    current_octet += 2
-    packet_answer_fields['rdlength'] = '0b' + packet_data[current_octet*8:(current_octet+1)*8]
+    current_octet += 4
+    packet_answer_fields['rdlength'] = '0b' + packet_data[current_octet*8:(current_octet+2)*8]
 
     # RDATA is the next RDLENTH bits specifying the data
-    current_octet += 1
+    current_octet += 2
     packet_answer_fields['rdata'] = '0b' + packet_data[current_octet*8:(current_octet+int(packet_answer_fields['rdlength'], 2))*8]
 
     return packet_answer_fields
 
-def print_answer(num_answers, type, alias, IP_address, pref, seconds, auth):
+def print_answer(num_answers, type, alias, IP_address, pref, seconds, auth): # TODO make this so it can print multiple records
     num_answers = int(num_answers, 2)
     type = int(type, 2)
     type = hex(type)
     seconds = int(seconds, 2)
+    # TODO properly convert IP from bytes to string
+    # TODO interpret name 
     match auth:
         case '0b0':
             auth = 'auth'
@@ -231,14 +234,15 @@ def print_answer(num_answers, type, alias, IP_address, pref, seconds, auth):
             # MX <tab> [alias] <tab> [pref] <tab> [seconds can cache] <tab> [auth | nonauth]
             print("MX\t" + alias + "\t" + pref + "\t" + seconds + "\t" + auth)
 
-def print_additional(num_records):
+def print_additional(num_records): # TODO complete this, not sure exaclty what it should do but I think it should print same format as answer section
+    num_records = int(num_records, 2)
     print(f"***Additional Section ({num_records} records)***")
     
     if num_records == 0:
         print("NOTFOUND")
     
     for i in range(num_records):
-            print("records") # TODO
+            print("records") # TODO like print all records or something i think 
  
 
 def read_packet(packet, id):
@@ -271,7 +275,7 @@ def read_packet(packet, id):
     # Check if response is valid
     match packet_header_fields['rcode']:
         case '0b0000':
-            print("OK") # TODO remove
+            print("") # no error
         case '0b0001':
             print("ERROR\tFormat error: the name server was unable to interpret the query")
         case '0b0010':
@@ -284,9 +288,13 @@ def read_packet(packet, id):
             print("ERROR\tRefused: the name server refuses to perform the specified operation for policy reasons")
         case _:
             print("ERROR\tUnknown error")
+
+    # TODO check CLASS to make sure it is 0x0001
     
     print_answer(packet_header_fields['ancount'], packet_answer_fields['type'], packet_answer_fields['name'], packet_answer_fields['rdata'], '0b00', packet_answer_fields['ttl'], packet_header_fields['aa'])
     
+    if (int(packet_header_fields['arcount'], 2) != 0):
+        print_additional(packet_header_fields['arcount'])
     
 
     
