@@ -88,10 +88,6 @@ def create_question(name, QTYPE): # TODO clean up comments
         length = len(i)
         ascii = i.encode()
         QNAME += [length] + list(ascii)
-    #QTYPE, 16 bit code specifying the type of query
-        # 0x0001 = A
-        # 0x0002 = NS
-        # 0x000f = MX   
     #QCLASS, 16 bit code specifying the class of query (always use 0x0001)
     QCLASS = [0, 1]
 
@@ -160,11 +156,11 @@ def parse_packet_questions(packet_data):
 
     return packet_question_fields, octet+2
 
-def parse_packet_answers(packet_data, starting_octet):
+def parse_packet_records(packet_data, starting_octet, record_type, record_count):
     # Assuming that packet data is in bits
     # create dictionary to store packet answers in BITS
     # Traverse packet data until we reach the answer section that starts with 11
-    packet_answer_fields = {}
+    packet_record_fields = {}
 
     current_octet = starting_octet
     name = '0b'
@@ -183,31 +179,33 @@ def parse_packet_answers(packet_data, starting_octet):
             current_octet += 1
     
     # NAME use offset to find name from question section
-    packet_answer_fields['name'] = name
+    packet_record_fields['name'] = name
 
     # TYPE is the next 16 bits specifying the type of query
-    packet_answer_fields['type'] = '0b' + packet_data[current_octet*8:(current_octet+2)*8]
+    packet_record_fields['type'] = '0b' + packet_data[current_octet*8:(current_octet+2)*8]
 
     # CLASS is the next 16 bits specifying the class of query
     current_octet += 2
-    packet_answer_fields['class'] = '0b' + packet_data[current_octet*8:(current_octet+2)*8]
+    packet_record_fields['class'] = '0b' + packet_data[current_octet*8:(current_octet+2)*8]
 
     # TTL is the next 32 bits specifying the time to live
     current_octet += 2
-    packet_answer_fields['ttl'] = '0b' + packet_data[current_octet*8:(current_octet+4)*8]
+    packet_record_fields['ttl'] = '0b' + packet_data[current_octet*8:(current_octet+4)*8]
 
     # RDLENGTH is the next 16 bits specifying the length of the RDATA field
     current_octet += 4
-    packet_answer_fields['rdlength'] = '0b' + packet_data[current_octet*8:(current_octet+2)*8]
+    packet_record_fields['rdlength'] = '0b' + packet_data[current_octet*8:(current_octet+2)*8]
 
     # RDATA is the next RDLENTH bits specifying the data
     current_octet += 2
-    packet_answer_fields['rdata'] = '0b' + packet_data[current_octet*8:(current_octet+int(packet_answer_fields['rdlength'], 2))*8]
+    packet_record_fields['rdata'] = '0b' + packet_data[current_octet*8:(current_octet+int(packet_record_fields['rdlength'], 2))*8]
 
-    return packet_answer_fields
+    return packet_record_fields, current_octet+int(packet_record_fields['rdlength'], 2) + 1
 
-def print_answer(num_answers, type, alias, IP_address, pref, seconds, auth): # TODO make this so it can print multiple records
-    num_answers = int(num_answers, 2)
+def print_record(num_records, type, alias, IP_address, pref, seconds, auth): # TODO make this so it can print multiple records
+    if num_records == 0:
+        print("NOTFOUND")
+    num_records = int(num_records, 2)
     type = int(type, 2)
     type = hex(type)
     seconds = int(seconds, 2)
@@ -218,7 +216,6 @@ def print_answer(num_answers, type, alias, IP_address, pref, seconds, auth): # T
             auth = 'auth'
         case '0b1':
             auth = 'nonauth'
-    print(f"***Answer Section ({num_answers} records)***")
     
     match type:
         case '0x1':
@@ -234,17 +231,6 @@ def print_answer(num_answers, type, alias, IP_address, pref, seconds, auth): # T
             # MX <tab> [alias] <tab> [pref] <tab> [seconds can cache] <tab> [auth | nonauth]
             print("MX\t" + alias + "\t" + pref + "\t" + seconds + "\t" + auth)
 
-def print_additional(num_records): # TODO complete this, not sure exaclty what it should do but I think it should print same format as answer section
-    num_records = int(num_records, 2)
-    print(f"***Additional Section ({num_records} records)***")
-    
-    if num_records == 0:
-        print("NOTFOUND")
-    
-    for i in range(num_records):
-            print("records") # TODO like print all records or something i think 
- 
-
 def read_packet(packet, id):
 
     # convert packet to binary
@@ -255,7 +241,14 @@ def read_packet(packet, id):
 
     packet_header_fields = parse_packet_header(packet)
     packet_question_fields, current_octet = parse_packet_questions(packet)
-    packet_answer_fields = parse_packet_answers(packet, current_octet)
+
+    # parse answers (can be multiple if qdcount > 1)
+    packet_answer_fields = {}
+    for answer_count in range(int(packet_header_fields['qdcount'], 2)):
+        packet_record_fields, current_octet = parse_packet_records(packet, current_octet, 'answer', answer_count)
+        packet_answer_fields[f'{answer_count}'] =  packet_record_fields
+    
+    # TODO parse additional records
 
     # check if id matches
     if packet_header_fields['id'] != convert_bytes_to_bin(id):
@@ -290,11 +283,17 @@ def read_packet(packet, id):
             print("ERROR\tUnknown error")
 
     # TODO check CLASS to make sure it is 0x0001
-    
-    print_answer(packet_header_fields['ancount'], packet_answer_fields['type'], packet_answer_fields['name'], packet_answer_fields['rdata'], '0b00', packet_answer_fields['ttl'], packet_header_fields['aa'])
-    
+
+    # print answer section
+    # TODO Preference
+    print(f"***Answer Section ({int(packet_header_fields['ancount'], 2)} records)***")
+    for i in range(int(packet_header_fields['ancount'], 2)):
+        print_record(packet_header_fields['ancount'], packet_answer_fields[f'{i}']['type'], packet_answer_fields[f'{i}']['name'], packet_answer_fields[f'{i}']['rdata'], '0b00', packet_answer_fields[f'{i}']['ttl'], packet_header_fields['aa'])
+   
     if (int(packet_header_fields['arcount'], 2) != 0):
-        print_additional(packet_header_fields['arcount'])
+        print(f"***Additional Section ({int(packet_header_fields['arcount'], 2)} records)***")
+    for j in range((int(packet_header_fields['arcount'], 2) != 0)):
+        print_record(packet_header_fields['arcount']) # TODO complete args
     
 
     
@@ -322,6 +321,7 @@ if __name__ == "__main__":
 
     #header section 
     header = create_header(id)
+    print('header')
     print (header)
 
     #question section
@@ -329,6 +329,8 @@ if __name__ == "__main__":
     question_packet = header + create_question(domain_name, server_type)
     print('question packet')
     print(question_packet)
+    print('ip_address')
+    print(ip_address)
     response_packet, time = querry_server(ip_address, port, timeout, retries, question_packet)
 
     read_packet(response_packet, id)
