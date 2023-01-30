@@ -63,20 +63,21 @@ def querry_server(ip, port, timeout, retries, packet):
     
 def random_id():
     id = (secrets.token_bytes(2))
-    print(id)
+    print("id", id)
     return id
 #converts to hex, then removes first two numbers to get rid of 0x
 def convert_to_hex(id): # ! never used
     return hex(id)[2:].zfill(4) #zfill pads with 0s to make 16 bits
 
 def convert_bytes_to_bin(num):
-    return bin(int.from_bytes(num, byteorder='big'))
+    num = bytes([1]) + num
+    return bin(int(num.hex(), 16))[3:]
     
 def create_header(id): # TODO clean up comments
     #headers consist of a 16 bit id, 16 bit flags, 16 bit question count, 16 bit answer count, 16 bit authority count, 16 bit additional count
     #in a flag, | QR | OPCODE (0) | AA (0)| TC (0)| RD | RA | Z | RCODE |
     array = [1, 0, 0, 1, 0, 0, 0, 0, 0, 0]
-    return (id + bytes(array))
+    return (id+ (bytes(array))) #add id
 
 
 #parameters, domain name, qtype (hex number representing type of query)
@@ -167,14 +168,17 @@ def parse_packet_records(packet_data, starting_octet, record_type, record_count)
     name = '0b'
     offset = False
     while ('0b' + packet_data[current_octet*8:(current_octet+1)*8] != '0b00000000'):
+        temp = packet_data[(current_octet+1)*8:(current_octet+2)*8]
         if ('0b' + packet_data[current_octet*8:current_octet*8+2] == '0b11'):
-            current_octet = int('0b' + packet_data[starting_octet*8+2:(starting_octet+2)*8], 2)
+            offset_octet = current_octet
+            current_octet = int('0b' + packet_data[current_octet*8+2:(current_octet+2)*8], 2)
             offset = True
-        name += packet_data[current_octet*8:(current_octet+1)*8]
-        current_octet += 1
+        else:
+            name += packet_data[current_octet*8:(current_octet+1)*8]
+            current_octet += 1
     else:
         if offset:
-            current_octet = starting_octet + 2
+            current_octet = offset_octet + 2
         else:
             current_octet += 1
     
@@ -245,10 +249,10 @@ def read_packet(packet, id):
     # convert packet to binary
     print('non binary, ', packet)
     packet = convert_bytes_to_bin(packet)
-    #remove binary tag
-    packet = packet[2:]
+    print('binary, ', packet)
 
     packet_header_fields = parse_packet_header(packet)
+    print('header fields: ', packet_header_fields)
     packet_question_fields, current_octet = parse_packet_questions(packet)
 
     # parse answers (can be multiple if qdcount > 1)
@@ -261,11 +265,11 @@ def read_packet(packet, id):
     print('here homie')
 
     # check if id matches
-    if packet_header_fields['id'] != convert_bytes_to_bin(id):
+    if packet_header_fields['id'] != bin(int(id.hex(), 16)):
         print("ERROR\tID mismatch")
         return
     
-    # check if response is 1
+    # check if response is 
     if packet_header_fields['qr'] != '0b1':
         print("ERROR\tNot a response")
         return
