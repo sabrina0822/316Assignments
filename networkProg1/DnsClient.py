@@ -40,12 +40,12 @@ def collect_args():
 
 def querry_server(ip, port, timeout, retries, packet): 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    start_time = time_ns()
-    sock.sendto(packet, (ip, port))
     sock.settimeout(timeout)
     count = 0
     while retries - count > 0:
         try:
+            start_time = time_ns()
+            sock.sendto(packet, (ip, port))
             data, addr = sock.recvfrom(1024)
             print("data", data)
             print("addr", addr)
@@ -62,7 +62,9 @@ def querry_server(ip, port, timeout, retries, packet):
         return None, None
     
 def random_id():
-    return (secrets.token_bytes(2))
+    id = (secrets.token_bytes(2))
+    print(id)
+    return id
 #converts to hex, then removes first two numbers to get rid of 0x
 def convert_to_hex(id): # ! never used
     return hex(id)[2:].zfill(4) #zfill pads with 0s to make 16 bits
@@ -160,6 +162,7 @@ def parse_packet_records(packet_data, starting_octet, record_type, record_count)
     # Traverse packet data until we reach the answer section that starts with 11
     packet_record_fields = {}
 
+
     current_octet = starting_octet
     name = '0b'
     offset = False
@@ -167,7 +170,6 @@ def parse_packet_records(packet_data, starting_octet, record_type, record_count)
         if ('0b' + packet_data[current_octet*8:current_octet*8+2] == '0b11'):
             current_octet = int('0b' + packet_data[starting_octet*8+2:(starting_octet+2)*8], 2)
             offset = True
-
         name += packet_data[current_octet*8:(current_octet+1)*8]
         current_octet += 1
     else:
@@ -216,7 +218,6 @@ def print_record(num_records, type, alias, IP_address, pref, seconds, auth): # T
         ip += str(int(IP_address[iterator:iterator+8], 2)) + "."
         iterator += 8        
     IP_address = ip[:-1] #TODO, this isn't the greatest way honestly but it works so 
-    print(ip)
 
     # TODO interpret name 
     match auth:
@@ -244,22 +245,17 @@ def read_packet(packet, id):
     # convert packet to binary
     print('non binary, ', packet)
     packet = convert_bytes_to_bin(packet)
-    print(packet)
     #remove binary tag
     packet = packet[2:]
 
     packet_header_fields = parse_packet_header(packet)
-    print(packet_header_fields)
     packet_question_fields, current_octet = parse_packet_questions(packet)
 
     # parse answers (can be multiple if qdcount > 1)
     packet_answer_fields = {}
     for answer_count in range(int(packet_header_fields['ancount'], 2)):
-        print(answer_count)
-        print("packet: ", packet, "\ncurrent_octet ", current_octet, "\nanswer_count ", answer_count)
         packet_record_fields, current_octet = parse_packet_records(packet, current_octet, 'answer', answer_count)
         packet_answer_fields[f'{answer_count}'] =  packet_record_fields
-        print('looping')
     
     # TODO parse additional records
     print('here homie')
