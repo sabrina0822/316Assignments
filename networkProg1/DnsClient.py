@@ -47,10 +47,11 @@ def querry_server(ip, port, timeout, retries, packet):
     count = 0
     while retries - count > 0:
         try:
-            data, _ = sock.recvfrom(1024)
+            data, addr = sock.recvfrom(1024)
             print("data", data)
+            print("addr", addr)
             end_time = time_ns()
-            print(f"Response received after {end_time - start_time} seconds ({count} retries)")
+            print(f"Response received after {(end_time - start_time)/1000000000} seconds ({count} retries)")
             return data, (end_time - start_time)
         except socket.timeout:
             count += 1
@@ -140,8 +141,9 @@ def parse_packet_questions(packet_data):
     # The domain name terminates with the zero-length octet, representing the null label of the root
     octet = 12
     qname = '0b'
-    while ('0b' + packet_data[octet*8, (octet+1)*8] != '0b00000000'):
-        qname += packet_data[octet*8, (octet+1)*8]
+    print('0b' + packet_data[octet*8:(octet+1)*8])
+    while (('0b' + packet_data[octet*8:(octet+1)*8]) != '0b00000000'):
+        qname += packet_data[octet*8:(octet+1)*8]
         octet += 1
     else:
         octet += 1
@@ -153,7 +155,7 @@ def parse_packet_questions(packet_data):
 
     # QCLASS is the next 16 bits specifying the class of query
     octet += 1
-    packet_question_fields['qclass'] = '0b' + packet_data[octet*8, (octet+1)*8]
+    packet_question_fields['qclass'] = '0b' + packet_data[octet*8:(octet+1)*8]
 
     return packet_question_fields, octet+1
 
@@ -170,8 +172,8 @@ def parse_packet_answers(packet_data, starting_octet):
 
     current_octet = octect_offset
     name = '0b'
-    while ('0b' + packet_data[current_octet*8, (current_octet+1)*8] != '0b00000000'):
-        name += packet_data[current_octet*8, (current_octet+1)*8]
+    while ('0b' + packet_data[current_octet*8:(current_octet+1)*8] != '0b00000000'):
+        name += packet_data[current_octet*8:(current_octet+1)*8]
         current_octet += 1
     else:
         current_octet += 1
@@ -184,19 +186,19 @@ def parse_packet_answers(packet_data, starting_octet):
 
     # CLASS is the next 16 bits specifying the class of query
     current_octet += 1
-    packet_answer_fields['class'] = '0b' + packet_data[current_octet*8, (current_octet+1)*8]
+    packet_answer_fields['class'] = '0b' + packet_data[current_octet*8:(current_octet+1)*8]
 
     # TTL is the next 32 bits specifying the time to live
     current_octet += 1
-    packet_answer_fields['ttl'] = '0b' + packet_data[current_octet*8, (current_octet+2)*8]
+    packet_answer_fields['ttl'] = '0b' + packet_data[current_octet*8:(current_octet+2)*8]
 
     # RDLENGTH is the next 16 bits specifying the length of the RDATA field
     current_octet += 2
-    packet_answer_fields['rdlength'] = '0b' + packet_data[current_octet*8, (current_octet+1)*8]
+    packet_answer_fields['rdlength'] = '0b' + packet_data[current_octet*8:(current_octet+1)*8]
 
     # RDATA is the next RDLENTH bits specifying the data
     current_octet += 1
-    packet_answer_fields['rdata'] = '0b' + packet_data[current_octet*8, (current_octet+int(packet_answer_fields['rdlength'], 2))*8]
+    packet_answer_fields['rdata'] = '0b' + packet_data[current_octet*8:(current_octet+int(packet_answer_fields['rdlength'], 2))*8]
 
     return packet_answer_fields
 
@@ -229,6 +231,9 @@ def print_additional(num_records):
  
 
 def read_packet(packet, id):
+
+    #remove binary tag
+    packet = packet[2:]
 
     packet_header_fields = parse_packet_header(packet)
     packet_question_fields, current_octet = parse_packet_questions(packet)
@@ -302,7 +307,7 @@ if __name__ == "__main__":
     print(question_packet)
     response_packet, time = querry_server(ip_address, port, timeout, retries, question_packet)
 
-    read_packet(response_packet, id)
+    read_packet(bin(int(response_packet.hex(), base=16)), id)
     
 
     print(f"timeout {timeout}\nretries {retries}\nport {port}\nmail_server {mail_server}\nname_server {name_server}\nserver {ip_address}\nname {domain_name}")
