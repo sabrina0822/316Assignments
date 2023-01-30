@@ -265,7 +265,8 @@ def read_packet(packet, id):
     print('here homie')
 
     # check if id matches
-    if packet_header_fields['id'] != bin(int(id.hex(), 16)):
+    print(bin(int(id.hex(), 16)))
+    if int(packet_header_fields['id'], 2) != int(id.hex(), 16):
         print("ERROR\tID mismatch")
         return
     
