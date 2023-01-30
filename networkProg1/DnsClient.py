@@ -73,15 +73,15 @@ def convert_bytes_to_bin(num):
     num = bytes([1]) + num
     return bin(int(num.hex(), 16))[3:]
     
-def create_header(id): # TODO clean up comments
+def create_header(id):
     #headers consist of a 16 bit id, 16 bit flags, 16 bit question count, 16 bit answer count, 16 bit authority count, 16 bit additional count
     #in a flag, | QR | OPCODE (0) | AA (0)| TC (0)| RD | RA | Z | RCODE |
     array = [1, 0, 0, 1, 0, 0, 0, 0, 0, 0]
-    return (id+ (bytes(array))) #add id
+    return (id+ (bytes(array)))
 
 
 #parameters, domain name, qtype (hex number representing type of query)
-def create_question(name, QTYPE): # TODO clean up comments
+def create_question(name, QTYPE):
     #QNAME is a domain name, sequence of lables where each label begins with a length octet followed by that number of octets
     #the domain name terminates with the zero length octect (null label of the root)
     QNAME = []
@@ -168,7 +168,6 @@ def parse_packet_records(packet_data, starting_octet, record_type, record_count)
     name = '0b'
     offset = False
     while ('0b' + packet_data[current_octet*8:(current_octet+1)*8] != '0b00000000'):
-        temp = packet_data[(current_octet+1)*8:(current_octet+2)*8]
         if ('0b' + packet_data[current_octet*8:current_octet*8+2] == '0b11'):
             offset_octet = current_octet
             current_octet = int('0b' + packet_data[current_octet*8+2:(current_octet+2)*8], 2)
@@ -265,7 +264,6 @@ def read_packet(packet, id):
     print('here homie')
 
     # check if id matches
-    print(bin(int(id.hex(), 16)))
     if int(packet_header_fields['id'], 2) != int(id.hex(), 16):
         print("ERROR\tID mismatch")
         return
@@ -297,18 +295,20 @@ def read_packet(packet, id):
         case _:
             print("ERROR\tUnknown error")
 
-    # TODO check CLASS to make sure it is 0x0001
-
     # print answer section
     # TODO Preference
     print(f"***Answer Section ({int(packet_header_fields['ancount'], 2)} records)***")
     for i in range(int(packet_header_fields['ancount'], 2)):
+        # Check for class mismatch (must be 1)
+        if int(packet_answer_fields[f'{i}']['class'], 2) != 1:
+            print("ERROR\tClass mismatch")
+            return
         print_record(packet_header_fields['ancount'], packet_answer_fields[f'{i}']['type'], packet_answer_fields[f'{i}']['name'], packet_answer_fields[f'{i}']['rdata'], '0b00', packet_answer_fields[f'{i}']['ttl'], packet_header_fields['aa'])
    
     if (int(packet_header_fields['arcount'], 2) != 0):
         print(f"***Additional Section ({int(packet_header_fields['arcount'], 2)} records)***")
-    for j in range((int(packet_header_fields['arcount'], 2) != 0)):
-        print_record(packet_header_fields['arcount']) # TODO complete args
+        for j in range((int(packet_header_fields['arcount'], 2) != 0)):
+            print_record(packet_header_fields['arcount']) # TODO complete args
     
 
     
