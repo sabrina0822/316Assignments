@@ -161,7 +161,8 @@ def parse_packet_records(packet_data, starting_octet):
     num_offsets = 0
     while ('0b' + packet_data[current_octet*8:(current_octet+1)*8] != '0b00000000'):
         if ('0b' + packet_data[current_octet*8:current_octet*8+2] == '0b11'):
-            offset_octet = current_octet
+            if num_offsets == 0:
+                offset_octet = current_octet
             current_octet = int('0b' + packet_data[current_octet*8+2:(current_octet+2)*8], 2)
             num_offsets += 1
         else:
@@ -170,7 +171,7 @@ def parse_packet_records(packet_data, starting_octet):
 
     else:
         if num_offsets > 0:
-            current_octet = offset_octet + (2*num_offsets)
+            current_octet = offset_octet + 2
         else:
             current_octet += 1
     
@@ -207,7 +208,8 @@ def parse_packet_records(packet_data, starting_octet):
             num_offsets = 0
             while ('0b' + packet_data[current_octet*8:(current_octet+1)*8] != '0b00000000'):
                 if ('0b' + packet_data[current_octet*8:current_octet*8+2] == '0b11'):
-                    offset_octet = current_octet
+                    if num_offsets == 0:
+                        offset_octet = current_octet
                     current_octet = int('0b' + packet_data[current_octet*8+2:(current_octet+2)*8], 2)
                     num_offsets += 1
                 else:
@@ -215,7 +217,7 @@ def parse_packet_records(packet_data, starting_octet):
                     current_octet += 1
             else:
                 if num_offsets > 0:
-                    current_octet = offset_octet + (2*num_offsets)
+                    current_octet = offset_octet + 2
                 else:
                     current_octet += 1
 
@@ -226,7 +228,8 @@ def parse_packet_records(packet_data, starting_octet):
             num_offsets = 0
             while ('0b' + packet_data[current_octet*8:(current_octet+1)*8] != '0b00000000'):
                 if ('0b' + packet_data[current_octet*8:current_octet*8+2] == '0b11'):
-                    offset_octet = current_octet
+                    if num_offsets == 0:
+                        offset_octet = current_octet
                     current_octet = int('0b' + packet_data[current_octet*8+2:(current_octet+2)*8], 2)
                     num_offsets += 1
                 else:
@@ -234,7 +237,7 @@ def parse_packet_records(packet_data, starting_octet):
                     current_octet += 1
             else:
                 if num_offsets > 0:
-                    current_octet = offset_octet + (2*num_offsets)
+                    current_octet = offset_octet + 2
                 else:
                     current_octet += 1
             packet_record_fields['rdata'] = cname
@@ -246,7 +249,8 @@ def parse_packet_records(packet_data, starting_octet):
             num_offsets = 0
             while ('0b' + packet_data[current_octet*8:(current_octet+1)*8] != '0b00000000'):
                 if ('0b' + packet_data[current_octet*8:current_octet*8+2] == '0b11'):
-                    offset_octet = current_octet
+                    if num_offsets == 0:
+                        offset_octet = current_octet
                     current_octet = int('0b' + packet_data[current_octet*8+2:(current_octet+2)*8], 2)
                     num_offsets += 1
 
@@ -255,7 +259,7 @@ def parse_packet_records(packet_data, starting_octet):
                     current_octet += 1
             else:
                 if num_offsets > 0:
-                    current_octet = offset_octet + (2*num_offsets)
+                    current_octet = offset_octet + 2
                 else:
                     current_octet += 1
             packet_record_fields['rdata'] = pref, mx
