@@ -47,7 +47,6 @@ def querry_server(ip, port, timeout, retries, packet):
             start_time = time_ns()
             sock.sendto(packet, (ip, port))
             data, addr = sock.recvfrom(1024)
-            sock.close()
             end_time = time_ns()
             print(f"Response received after {(end_time - start_time)/1000000000} seconds ({count} retries)")
             return data, (end_time - start_time)
@@ -55,7 +54,9 @@ def querry_server(ip, port, timeout, retries, packet):
             count += 1
     else:
         print(f"ERROR\tMaximum number of retries {retries} exceeded")
-        return None, None
+
+    sock.close()
+    return None, None
     
 def random_id():
     id = (secrets.token_bytes(2))
@@ -277,7 +278,7 @@ def read_ip(data):
     while iterator < len(data):
         result += str(int(data[iterator:iterator+8], 2)) + "."
         iterator += 8        
-    return result[:-1] #TODO, this isn't the greatest way honestly but it works so 
+    return result[:-1]
 
 def read_rdata(data): 
     iterator = 0
@@ -299,17 +300,11 @@ def read_rdata(data):
     return result
     
 
-def print_record(num_records, type, rdata, seconds, auth): # TODO make this so it can print multiple records
-    if num_records == 0:
-        print("NOTFOUND")
-    num_records = int(num_records, 2)
+def print_record(type, rdata, seconds, auth):
     type = int(type, 2)
     type = hex(type)
     seconds = int(seconds, 2)
-
-   
-
-    # TODO interpret name 
+ 
     match auth:
         case '0b0':
             auth = 'auth'
@@ -361,6 +356,10 @@ def read_packet(packet, id):
         packet_answer_fields[f'{answer_count}'] =  packet_record_fields
     
     # TODO parse additional records
+    packet_additional_fields = {}
+    for additional_count in range(int(packet_header_fields['arcount'], 2)):
+        packet_record_fields, current_octet = parse_packet_records(packet, current_octet)
+        packet_additional_fields[f'{additional_count}'] =  packet_record_fields
 
     # check if id matches
     if int(packet_header_fields['id'], 2) != int(id.hex(), 16):
@@ -395,18 +394,22 @@ def read_packet(packet, id):
             print("ERROR\tUnknown error")
 
     # print answer section
+    if (int(packet_header_fields['ancount'], 2) == 0):
+        print("NOTFOUND")
+        return
+
     print(f"***Answer Section ({int(packet_header_fields['ancount'], 2)} records)***")
     for i in range(int(packet_header_fields['ancount'], 2)):
         # Check for class mismatch (must be 1)
         if int(packet_answer_fields[f'{i}']['class'], 2) != 1:
             print("ERROR\tClass mismatch")
             return
-        print_record(packet_header_fields['ancount'], packet_answer_fields[f'{i}']['type'], packet_answer_fields[f'{i}']['rdata'], packet_answer_fields[f'{i}']['ttl'], packet_header_fields['aa'])
+        print_record(packet_answer_fields[f'{i}']['type'], packet_answer_fields[f'{i}']['rdata'], packet_answer_fields[f'{i}']['ttl'], packet_header_fields['aa'])
    
     if (int(packet_header_fields['arcount'], 2) != 0):
-        print(f"***Additional Section ({int(packet_header_fields['arcount'], 2)} records)***")
-        for j in range((int(packet_header_fields['arcount'], 2) != 0)):
-            print_record(packet_header_fields['arcount']) # TODO complete args
+        print(f"\n***Additional Section ({int(packet_header_fields['arcount'], 2)} records)***")
+        for i in range(int(packet_header_fields['arcount'], 2)):
+            print_record(packet_additional_fields[f'{i}']['type'], packet_additional_fields[f'{i}']['rdata'], packet_additional_fields[f'{i}']['ttl'], packet_header_fields['aa'])
     
 
     
@@ -424,13 +427,24 @@ if __name__ == "__main__":
     timeout = args.t
     retries = args.r
     port = args.p
-    print('port: ', port)
     mail_server = args.mx
     name_server = args.ns
     ip_address = args.server[1:]
-    print(ip_address)
     domain_name = args.name
     id = random_id()
+
+    # process type
+    if mail_server:
+        server_type = "MX"
+    elif name_server:
+        server_type = "NS"
+    else:
+        server_type = "A"
+
+    # Print starting message
+    print(f"DnsClient sending request for {domain_name}")
+    print(f"Server: {ip_address}")
+    print(f"Request type: {server_type}\n")
 
     #header section 
     header = create_header(id)

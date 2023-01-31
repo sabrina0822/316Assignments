@@ -11,7 +11,7 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "args": ["-t", "5", "-r", "3", "@8.8.8.8", "www.youtube.com"],
+            "args": ["-t", "5", "-r", "3", "-ns", "@180.76.76.76", "baidu.com"],
         }
     ]
 }
