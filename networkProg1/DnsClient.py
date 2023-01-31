@@ -47,6 +47,7 @@ def querry_server(ip, port, timeout, retries, packet):
             start_time = time_ns()
             sock.sendto(packet, (ip, port))
             data, addr = sock.recvfrom(1024)
+            sock.close()
             print("data", data)
             print("addr", addr)
             end_time = time_ns()
@@ -54,9 +55,7 @@ def querry_server(ip, port, timeout, retries, packet):
             return data, (end_time - start_time)
         except socket.timeout:
             count += 1
-            print("timeout") # TODO remove
-            if (count > retries): 
-                return None, None
+            print("Timeout:", count) # TODO remove
     else:
         print(f"ERROR\tMaximum number of retries {retries} exceeded")
         return None, None
@@ -65,9 +64,6 @@ def random_id():
     id = (secrets.token_bytes(2))
     print("id", id)
     return id
-#converts to hex, then removes first two numbers to get rid of 0x
-def convert_to_hex(id): # ! never used
-    return hex(id)[2:].zfill(4) #zfill pads with 0s to make 16 bits
 
 def convert_bytes_to_bin(num):
     num = bytes([1]) + num
@@ -157,7 +153,7 @@ def parse_packet_questions(packet_data):
 
     return packet_question_fields, octet+2
 
-def parse_packet_records(packet_data, starting_octet, record_type, record_count):
+def parse_packet_records(packet_data, starting_octet):
     # Assuming that packet data is in bits
     # create dictionary to store packet answers in BITS
     # Traverse packet data until we reach the answer section that starts with 11
@@ -165,19 +161,21 @@ def parse_packet_records(packet_data, starting_octet, record_type, record_count)
 
 
     current_octet = starting_octet
+    print("Starting Octet:", starting_octet)
     name = '0b'
-    offset = False
+    num_offsets = 0
     while ('0b' + packet_data[current_octet*8:(current_octet+1)*8] != '0b00000000'):
         if ('0b' + packet_data[current_octet*8:current_octet*8+2] == '0b11'):
             offset_octet = current_octet
             current_octet = int('0b' + packet_data[current_octet*8+2:(current_octet+2)*8], 2)
-            offset = True
+            num_offsets += 1
         else:
             name += packet_data[current_octet*8:(current_octet+1)*8]
             current_octet += 1
+
     else:
-        if offset:
-            current_octet = offset_octet + 2
+        if num_offsets > 0:
+            current_octet = offset_octet + (2*num_offsets)
         else:
             current_octet += 1
     
@@ -200,13 +198,87 @@ def parse_packet_records(packet_data, starting_octet, record_type, record_count)
     packet_record_fields['rdlength'] = '0b' + packet_data[current_octet*8:(current_octet+2)*8]
 
     # RDATA is the next RDLENTH bits specifying the data
+    octet_before_rdata = current_octet + 2
     current_octet += 2
-    packet_record_fields['rdata'] = '0b' + packet_data[current_octet*8:(current_octet+int(packet_record_fields['rdlength'], 2))*8]
+    print("Current Octet:", current_octet)
+    type = int(packet_record_fields['type'], 2)
+    print(packet_record_fields['type'])
+    type = hex(type)
+    print(type)
 
-    return packet_record_fields, current_octet+int(packet_record_fields['rdlength'], 2) + 1
+    match type:
+        case '0x1': #IP
+            packet_record_fields['rdata'] = '0b' + packet_data[current_octet*8:(current_octet+4)*8]
+            current_octet += 4
+        case '0x2': #NS
+            ns = '0b'
+            num_offsets = 0
+            while ('0b' + packet_data[current_octet*8:(current_octet+1)*8] != '0b00000000'):
+                if ('0b' + packet_data[current_octet*8:current_octet*8+2] == '0b11'):
+                    offset_octet = current_octet
+                    current_octet = int('0b' + packet_data[current_octet*8+2:(current_octet+2)*8], 2)
+                    num_offsets += 1
+                else:
+                    ns += packet_data[current_octet*8:(current_octet+1)*8]
+                    current_octet += 1
+            else:
+                if num_offsets > 0:
+                    current_octet = offset_octet + (2*num_offsets)
+                else:
+                    current_octet += 1
 
-def read_rdata(data):
+            packet_record_fields['rdata'] = ns
+        
+        case '0x5': #CNAME
+            cname = '0b'
+            num_offsets = 0
+            while ('0b' + packet_data[current_octet*8:(current_octet+1)*8] != '0b00000000'):
+                print(current_octet)
+                if ('0b' + packet_data[current_octet*8:current_octet*8+2] == '0b11'):
+                    offset_octet = current_octet
+                    current_octet = int('0b' + packet_data[current_octet*8+2:(current_octet+2)*8], 2)
+                    num_offsets += 1
+                    print("hello", current_octet)
+                else:
+                    cname += packet_data[current_octet*8:(current_octet+1)*8]
+                    current_octet += 1
+            else:
+                if num_offsets > 0:
+                    current_octet = offset_octet + (2*num_offsets)
+                else:
+                    current_octet += 1
+            packet_record_fields['rdata'] = cname
+
+        case '0xf': #MX
+            pref = '0b' + packet_data[current_octet*8:(current_octet+2)*8]
+            current_octet += 2
+            mx = '0b'
+            num_offsets = 0
+            while ('0b' + packet_data[current_octet*8:(current_octet+1)*8] != '0b00000000'):
+                if ('0b' + packet_data[current_octet*8:current_octet*8+2] == '0b11'):
+                    offset_octet = current_octet
+                    current_octet = int('0b' + packet_data[current_octet*8+2:(current_octet+2)*8], 2)
+                    num_offsets += 1
+
+                else:
+                    mx += packet_data[current_octet*8:(current_octet+1)*8]
+                    current_octet += 1
+            else:
+                if num_offsets > 0:
+                    current_octet = offset_octet + (2*num_offsets)
+                else:
+                    current_octet += 1
+            packet_record_fields['rdata'] = pref, mx
+            
+        case _: #INVALID
+            print("ERROR\t Invalid type")
+
+    print("skip", str(int(packet_record_fields['rdlength'], 2)))
+    return packet_record_fields, current_octet
+
+def read_ip(data):
      # converting the IP address to decimal    
+    print(data)
     iterator = 0 
     result = "" #initialize ip variable 
     data = data[2:] #need to truncate the first two bits to ignore the 0b
@@ -214,6 +286,26 @@ def read_rdata(data):
         result += str(int(data[iterator:iterator+8], 2)) + "."
         iterator += 8        
     return result[:-1] #TODO, this isn't the greatest way honestly but it works so 
+
+def read_rdata(data): 
+    iterator = 0
+    result = "" #initialize ip variable 
+    data = data[2:] #need to truncate the first two bits to ignore the 0b
+    max = int(data[iterator:iterator+8], 2)
+    count = 0
+    iterator += 8
+    while iterator < len(data):
+        n = (int(data[iterator:iterator+8], 2))
+        if count < max: 
+            result += n.to_bytes((n.bit_length() + 7) // 8, 'big').decode() 
+            count = count + 1 
+        else: 
+            max = int(data[iterator:iterator+8], 2)
+            count = 0
+            result += "."
+        iterator += 8      
+    return result
+    
 
 def print_record(num_records, type, rdata, seconds, auth): # TODO make this so it can print multiple records
     if num_records == 0:
@@ -235,7 +327,7 @@ def print_record(num_records, type, rdata, seconds, auth): # TODO make this so i
     match type:
         case '0x1':
             #read ip address from rdata
-            ip_address = read_rdata(rdata) 
+            ip_address = read_ip(rdata) 
 
             # IP <tab> [ip address] <tab> [seconds can cache] <tab> [auth | nonauth]
             print("IP\t" + ip_address + "\t" + str(seconds) + "\t" + str(auth))
@@ -243,38 +335,43 @@ def print_record(num_records, type, rdata, seconds, auth): # TODO make this so i
         case '0x2': 
             # Read name server from rdata
             name_server = read_rdata(rdata)
-
             # NS <tab> [alias] <tab> [seconds can cache] <tab> [auth | nonauth]
-            print("NS\t" + name_server + "\t" + seconds + "\t" + auth)
+            print("NS\t" + name_server + "\t" + str(seconds) + "\t" + auth)
         case '0x5':
             # Read canonical name from rdata
             alias = read_rdata(rdata)
 
             # CNAME <tab> [alias] <tab> [seconds can cache] <tab> [auth | nonauth]
-            print("CNAME\t" + alias + "\t" + seconds + "\t" + auth)
+            print("CNAME\t" + alias + "\t" + str(seconds) + "\t" + auth)
+            
         case '0xf':
             # Read mail exchange from rdata
-            pref = int(rdata[0:18])
-            dom_name = read_rdata(rdata[18:])
+            pref, mx_data = rdata
+            dom_name = read_rdata(mx_data)
+            pref = int(pref, 2)
             # MX <tab> [alias] <tab> [pref] <tab> [seconds can cache] <tab> [auth | nonauth]
-            print("MX\t" + dom_name + "\t" + pref + "\t" + seconds + "\t" + auth)
+            print("MX\t" + dom_name + "\t" + str(pref) + "\t" + str(seconds) + "\t" + auth)
+
+        case _:
+            print("ERROR\t Invalid type")
 
 def read_packet(packet, id):
-
     # convert packet to binary
     print('non binary, ', packet)
     packet = convert_bytes_to_bin(packet)
     print('binary, ', packet)
+        
 
     packet_header_fields = parse_packet_header(packet)
     print('header fields: ', packet_header_fields)
     packet_question_fields, current_octet = parse_packet_questions(packet)
-
+    print(current_octet)
     # parse answers (can be multiple if ancount > 1)
     packet_answer_fields = {}
     for answer_count in range(int(packet_header_fields['ancount'], 2)):
-        packet_record_fields, current_octet = parse_packet_records(packet, current_octet, 'answer', answer_count)
+        packet_record_fields, current_octet = parse_packet_records(packet, current_octet)
         packet_answer_fields[f'{answer_count}'] =  packet_record_fields
+        print(packet_record_fields)
     
     # TODO parse additional records
     print('here homie')
@@ -332,9 +429,9 @@ def qtype(mail_server, name_server):
     if mail_server: 
         return [0, 15]
     elif name_server:
-        return [0, 0x2]
+        return [0, 2]
     else: 
-        return [0, 0x1]
+        return [0, 1]
 
 if __name__ == "__main__":
     args = collect_args()
@@ -364,10 +461,8 @@ if __name__ == "__main__":
     print(ip_address)
     response_packet, time = querry_server(ip_address, port, timeout, retries, question_packet)
 
-    if (response_packet == None):
-        print("ERROR\tTimeout")
-    else: 
-        print('here')
+    if response_packet:
+        print('Reading packet')
         read_packet(response_packet, id)
 
 
