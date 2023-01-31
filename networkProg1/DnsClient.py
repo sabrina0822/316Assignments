@@ -48,21 +48,17 @@ def querry_server(ip, port, timeout, retries, packet):
             sock.sendto(packet, (ip, port))
             data, addr = sock.recvfrom(1024)
             sock.close()
-            print("data", data)
-            print("addr", addr)
             end_time = time_ns()
             print(f"Response received after {(end_time - start_time)/1000000000} seconds ({count} retries)")
             return data, (end_time - start_time)
         except socket.timeout:
             count += 1
-            print("Timeout:", count) # TODO remove
     else:
         print(f"ERROR\tMaximum number of retries {retries} exceeded")
         return None, None
     
 def random_id():
     id = (secrets.token_bytes(2))
-    print("id", id)
     return id
 
 def convert_bytes_to_bin(num):
@@ -161,7 +157,6 @@ def parse_packet_records(packet_data, starting_octet):
 
 
     current_octet = starting_octet
-    print("Starting Octet:", starting_octet)
     name = '0b'
     num_offsets = 0
     while ('0b' + packet_data[current_octet*8:(current_octet+1)*8] != '0b00000000'):
@@ -200,11 +195,8 @@ def parse_packet_records(packet_data, starting_octet):
     # RDATA is the next RDLENTH bits specifying the data
     octet_before_rdata = current_octet + 2
     current_octet += 2
-    print("Current Octet:", current_octet)
     type = int(packet_record_fields['type'], 2)
-    print(packet_record_fields['type'])
     type = hex(type)
-    print(type)
 
     match type:
         case '0x1': #IP
@@ -233,12 +225,10 @@ def parse_packet_records(packet_data, starting_octet):
             cname = '0b'
             num_offsets = 0
             while ('0b' + packet_data[current_octet*8:(current_octet+1)*8] != '0b00000000'):
-                print(current_octet)
                 if ('0b' + packet_data[current_octet*8:current_octet*8+2] == '0b11'):
                     offset_octet = current_octet
                     current_octet = int('0b' + packet_data[current_octet*8+2:(current_octet+2)*8], 2)
                     num_offsets += 1
-                    print("hello", current_octet)
                 else:
                     cname += packet_data[current_octet*8:(current_octet+1)*8]
                     current_octet += 1
@@ -273,12 +263,10 @@ def parse_packet_records(packet_data, starting_octet):
         case _: #INVALID
             print("ERROR\t Invalid type")
 
-    print("skip", str(int(packet_record_fields['rdlength'], 2)))
     return packet_record_fields, current_octet
 
 def read_ip(data):
      # converting the IP address to decimal    
-    print(data)
     iterator = 0 
     result = "" #initialize ip variable 
     data = data[2:] #need to truncate the first two bits to ignore the 0b
@@ -357,24 +345,18 @@ def print_record(num_records, type, rdata, seconds, auth): # TODO make this so i
 
 def read_packet(packet, id):
     # convert packet to binary
-    print('non binary, ', packet)
     packet = convert_bytes_to_bin(packet)
-    print('binary, ', packet)
         
 
     packet_header_fields = parse_packet_header(packet)
-    print('header fields: ', packet_header_fields)
     packet_question_fields, current_octet = parse_packet_questions(packet)
-    print(current_octet)
     # parse answers (can be multiple if ancount > 1)
     packet_answer_fields = {}
     for answer_count in range(int(packet_header_fields['ancount'], 2)):
         packet_record_fields, current_octet = parse_packet_records(packet, current_octet)
         packet_answer_fields[f'{answer_count}'] =  packet_record_fields
-        print(packet_record_fields)
     
     # TODO parse additional records
-    print('here homie')
 
     # check if id matches
     if int(packet_header_fields['id'], 2) != int(id.hex(), 16):
@@ -409,7 +391,6 @@ def read_packet(packet, id):
             print("ERROR\tUnknown error")
 
     # print answer section
-    # TODO Preference
     print(f"***Answer Section ({int(packet_header_fields['ancount'], 2)} records)***")
     for i in range(int(packet_header_fields['ancount'], 2)):
         # Check for class mismatch (must be 1)
@@ -449,20 +430,13 @@ if __name__ == "__main__":
 
     #header section 
     header = create_header(id)
-    print('header')
-    print (header)
 
     #question section
     server_type = qtype(mail_server, name_server)
     question_packet = header + create_question(domain_name, server_type)
-    print('question packet')
-    print(question_packet)
-    print('ip_address')
-    print(ip_address)
     response_packet, time = querry_server(ip_address, port, timeout, retries, question_packet)
 
     if response_packet:
-        print('Reading packet')
         read_packet(response_packet, id)
 
 
