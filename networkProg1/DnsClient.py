@@ -355,7 +355,6 @@ def read_packet(packet, id):
         packet_record_fields, current_octet = parse_packet_records(packet, current_octet)
         packet_answer_fields[f'{answer_count}'] =  packet_record_fields
     
-    # TODO parse additional records
     packet_additional_fields = {}
     for additional_count in range(int(packet_header_fields['arcount'], 2)):
         packet_record_fields, current_octet = parse_packet_records(packet, current_octet)
