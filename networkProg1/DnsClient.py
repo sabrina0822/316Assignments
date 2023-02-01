@@ -17,7 +17,7 @@ python DnsClient [-t timeout] [-r max-retries] [-p port] [-mx | nx] @server name
 
 def valid_server_address(server_address):
     try:
-        if match(r'@*.*.*.*', server_address): # TODO add better regex for valid IP address *if wanted*
+        if match(r'@*.*.*.*', server_address):
             return server_address
         else:
             raise ValueError
@@ -42,9 +42,10 @@ def querry_server(ip, port, timeout, retries, packet):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.settimeout(timeout)
     count = 0
+    start_time = time_ns()
     while retries - count > 0:
         try:
-            start_time = time_ns()
+            
             sock.sendto(packet, (ip, port))
             data, addr = sock.recvfrom(1024)
             end_time = time_ns()
