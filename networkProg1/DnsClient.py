@@ -38,7 +38,7 @@ def collect_args():
 
     return  parser.parse_args()
 
-def querry_server(ip, port, timeout, retries, packet): 
+def query_server(ip, port, timeout, retries, packet): 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.settimeout(timeout)
     count = 0
@@ -452,7 +452,7 @@ if __name__ == "__main__":
     #question section
     server_type = qtype(mail_server, name_server)
     question_packet = header + create_question(domain_name, server_type)
-    response_packet, time = querry_server(ip_address, port, timeout, retries, question_packet)
+    response_packet, time = query_server(ip_address, port, timeout, retries, question_packet)
 
     if response_packet:
         read_packet(response_packet, id)
