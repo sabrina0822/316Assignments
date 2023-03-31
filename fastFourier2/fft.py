@@ -11,18 +11,18 @@ import threading
 # default image is 474 by 630 pixels
 image = None
 
-def dft_1D(row_vector : numpy.ndarray): 
+def dft_1D(vector : numpy.ndarray): 
     """
     Calculate the DFT of the given row vecotr input signal
     Input: a vector of pixels
     """  
-    output_vector = numpy.zeros(len(row_vector), dtype=complex)
+    output_vector = numpy.zeros(len(vector), dtype=complex)
 
     dft = lambda k, N, n: cmath.exp(-1j * 2 * math.pi * k * n / N); 
-    N = len(row_vector)
+    N = len(vector)
     for k in range(N):
         for n in range(N):
-            output_vector[n] += row_vector[k] * dft(k, len(row_vector), n)   
+            output_vector[n] += vector[k] * dft(k, len(vector), n)   
 
     return output_vector
 
@@ -146,7 +146,58 @@ def fft_2D(matrix : numpy.ndarray):
         
     return output_matrix
 
-# def inverse_fft_1D(): 
+def inverse_dft_1D(vector: numpy.ndarray): 
+    """
+    Calculate the DFT of the given row vecotr input signal
+    Input: a vector of pixels
+    """  
+    output_vector = numpy.zeros(len(vector), dtype=complex)
+
+    dft = lambda k, N, n: cmath.exp(1j * 2 * math.pi * k * n / N); 
+    N = len(vector)
+    for n in range(N):
+        for k in range(N):
+            output_vector[n] += vector[k] * dft(k, len(vector), n)   
+
+    return output_vector 
+
+def inverse_fft_1D(row_vector : numpy.ndarray): 
+    """
+    Calculate the FFT of the given row vector input signal
+    Input: a vector of pixels
+    """
+
+    N = len(row_vector)
+
+    # Make vector size to nearest power of 2
+    pow2 = math.ceil(math.log2(N))
+    N = 2 ** pow2
+
+    # Pad vector with zeros
+    row_vector = numpy.pad(row_vector, (0, N - len(row_vector)), 'constant')
+
+    output_vector = numpy.zeros(N, dtype=complex)
+
+    # TODO Chose proper base case
+    # Base case
+    if N == 8:
+        return inverse_dft_1D(row_vector)
+    else:
+        # Split vector into even and odd indices
+        even = row_vector[0::2]
+        odd = row_vector[1::2]
+
+        # Calculate FFT of even and odd indices
+        even_fft = inverse_fft_1D(even)
+        odd_fft = inverse_fft_1D(odd)
+
+        # Calculate the output vector
+        output_vector = numpy.zeros(N, dtype=complex)
+        for k in range(N // 2):
+            output_vector[k] = even_fft[k] + odd_fft[k] * cmath.exp(1j * 2 * math.pi * k / N)
+            output_vector[k + N//2] = even_fft[k] - odd_fft[k] *  cmath.exp(1j * 2 * math.pi * k / N)
+
+        return output_vector
 
 # def inverse_fft_2D():
 
@@ -179,10 +230,18 @@ if __name__ == "__main__":
 
     # pad image with zeros
     image2 = numpy.pad(image, ((0, 512 - image.shape[0]), (0, 1024 - image.shape[1])), 'constant')
-    fft_2D(image)
-    dft_2D(image2)
+    # fft_2D(image)
+    # dft_2D(image2)
 
 
-    oracle = numpy.fft.fft2(image, (1024, 1024))
+    # oracle = numpy.fft.fft2(image, (512, 1024))
 
-    print(f"Oracle:\n{oracle}\n\n")
+    # pad the vector with zeros
+    vector2 = numpy.pad(vector, (0, 1024 - len(vector)), 'constant')
+    print(vector)
+    print("\n\n")
+    print(inverse_dft_1D(dft_1D(vector2))*1/1024)
+    print("\n\n\n")
+    print(inverse_fft_1D(fft_1D(vector))*1/1024)
+
+    # print(f"Oracle:\n{oracle}\n\n")
