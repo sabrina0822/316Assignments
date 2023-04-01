@@ -277,16 +277,17 @@ if __name__ == "__main__":
     image2 = numpy.pad(image, ((0, 512 - image.shape[0]), (0, 1024 - image.shape[1])), 'constant')
     # fft_2D(image)
     matrix = fft_2D(image)
-    matrix = matrix[0:474,0:630]
-    print("about to plot")
-    plot_dft(matrix)
+    # matrix = matrix[0:474,0:630]
+    # print("about to plot")
+    # plot_dft(matrix)
 
-    Z_dft = numpy.fft.fft2(image)
-    plt.imshow(numpy.real(Z_dft), norm=plc.LogNorm(), cmap='gray')
-    plt.colorbar()
-    plt.show
-    plt.savefig('expectedOuptut.svg')    # oracle = numpy.fft.fft2(image, (512, 1024))
-    save_dft(matrix)
+    Z_dft = numpy.fft.ifft2(image)
+    inverse_fft_2D(image)
+    # plt.imshow(numpy.real(Z_dft), norm=plc.LogNorm(), cmap='gray')
+    # plt.colorbar()
+    # plt.show
+    # plt.savefig('expectedOuptut.svg')    # oracle = numpy.fft.fft2(image, (512, 1024))
+    # save_dft(matrix)
 
     print("here")
 
