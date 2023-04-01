@@ -1,6 +1,7 @@
 import argparse
 import numpy
-#simport matplotlib
+import matplotlib.pyplot as plt 
+import matplotlib.colors as plc
 import cv2
 import math
 import cmath
@@ -184,30 +185,9 @@ def inverse_fft_1D(row_vector : numpy.ndarray):
 
     output_vector = Xconj / N
 
-
-    # # TODO Chose proper base case
-    # # Base case
-    # if N == 8:
-    #     return inverse_dft_1D(row_vector)
-    # else:
-    #     # Split vector into even and odd indices
-    #     even = row_vector[0::2]
-    #     odd = row_vector[1::2]
-
-    #     # Calculate FFT of even and odd indices
-    #     even_fft = inverse_fft_1D(even)
-    #     odd_fft = inverse_fft_1D(odd)
-
-    #     # Calculate the output vector
-    #     output_vector = numpy.zeros(N, dtype=complex)
-    #     for k in range(N // 2):
-    #         output_vector[k] = even_fft[k] + odd_fft[k] * cmath.exp(1j * 2 * math.pi * k / N)
-    #         output_vector[k + N//2] = even_fft[k] - odd_fft[k] *  cmath.exp(1j * 2 * math.pi * k / N)
-
-
     return output_vector
 
-def inverse_fft_2D():
+def inverse_fft_2D(matrix : numpy.ndarray):
     """
     Calculate the FFT of the given 2D input signal
     Input: a 2D array of values
@@ -248,18 +228,28 @@ def inverse_fft_2D():
         output_matrix[0:N, m] = inverse_fft_1D(inner_matrix[0:N, m])
 
     if __debug__:
-        print(f"\n\nFFT 2D - Output Matrix:\n{output_matrix}\n\n")
+        print(f"\n\nInverse FFT 2D - Output Matrix:\n{output_matrix}\n\n")
         
     return output_matrix
 
-def plot_dft():
+def plot_dft(output_matrix):
     """
     Plots the resulting output DFT on a log scale plot
     """
+    #plot the result on a log scale using matplotlib lognor
+    
+    plt.imshow(numpy.real(output_matrix), norm=plc.LogNorm(), cmap='gray')
+    plt.colorbar()
+    plt.show()
+    plt.savefig('filename.svg')    # oracle = numpy.fft.fft2(image, (512, 1024))
 
-# def save_dft():
 
-
+def save_dft(output_matrix):
+    """
+    Saves the resulting output DFT on a csv or txt file
+    """
+    numpy.savetxt('2d_dft.csv', output_matrix, delimiter=',')
+ 
 
 def collect_args():
     parser = argparse.ArgumentParser()
@@ -286,18 +276,27 @@ if __name__ == "__main__":
     # pad image with zeros
     image2 = numpy.pad(image, ((0, 512 - image.shape[0]), (0, 1024 - image.shape[1])), 'constant')
     # fft_2D(image)
-    # dft_2D(image2)
+    matrix = fft_2D(image)
+    matrix = matrix[0:474,0:630]
+    print("about to plot")
+    plot_dft(matrix)
 
+    Z_dft = numpy.fft.fft2(image)
+    plt.imshow(numpy.real(Z_dft), norm=plc.LogNorm(), cmap='gray')
+    plt.colorbar()
+    plt.show
+    plt.savefig('expectedOuptut.svg')    # oracle = numpy.fft.fft2(image, (512, 1024))
+    save_dft(matrix)
 
-    # oracle = numpy.fft.fft2(image, (512, 1024))
+    print("here")
 
     # pad the vector with zeros
-    vector2 = numpy.pad(vector, (0, 1024 - len(vector)), 'constant')
-    print(vector)
-    print("\n\n")
-    print(numpy.real(inverse_dft_1D(dft_1D(vector2))*1/1024))
-    print("\n\n\n")
-    print(numpy.real(inverse_fft_1D(fft_1D(vector))))
+    #vector2 = numpy.pad(vector, (0, 1024 - len(vector)), 'constant')
+    #print(vector)
+    #print("\n\n")
+    #print(numpy.real(inverse_dft_2(dft_1D(vector2))*1/1024))
+    # print("\n\n\n")
+    # print(numpy.real(inverse_fft_2D(fft_2D(image))))
 
     # print(f"Oracle:\n{oracle}\n\n")
 
