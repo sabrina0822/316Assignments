@@ -48,7 +48,8 @@ def dft_2D(matrix : numpy.ndarray):
 
     for n in range(N):
         if __debug__:
-            print(f"{n} ", flush=True, end=" ")
+            if n % 10 == 0:
+                print(f"{n} ", flush=True, end=" ")
         inner_matrix[n, 0:M] = dft_1D(matrix[n, 0:M])
 
     if __debug__:
@@ -56,7 +57,8 @@ def dft_2D(matrix : numpy.ndarray):
 
     for m in range(M):
         if __debug__:
-            print(f"{m}", flush=True, end=" ")
+            if m % 10 == 0:
+                print(f"{m}", flush=True, end=" ")
         output_matrix[0:N, m] = dft_1D(inner_matrix[0:N, m])
 
     if __debug__:
@@ -131,7 +133,8 @@ def fft_2D(matrix : numpy.ndarray):
 
     for n in range(N):
         if __debug__:
-            print(f"{n} ", flush=True, end=" ")
+            if n % 10 == 0:
+                print(f"{n}", flush=True, end=" ")
         inner_matrix[n, 0:M] = fft_1D(matrix[n, 0:M])
 
     if __debug__:
@@ -139,13 +142,14 @@ def fft_2D(matrix : numpy.ndarray):
 
     for m in range(M):
         if __debug__:
-            print(f"{m}", flush=True, end=" ")
+            if m % 10 == 0:
+                print(f"{m}", flush=True, end=" ")
         output_matrix[0:N, m] = fft_1D(inner_matrix[0:N, m])
 
     if __debug__:
         print(f"\n\nFFT 2D - Output Matrix:\n{output_matrix}\n\n")
         
-    return output_matrix
+    return numpy.abs(output_matrix)
 
 def inverse_dft_1D(vector: numpy.ndarray): 
     """
@@ -216,7 +220,7 @@ def inverse_fft_2D(matrix : numpy.ndarray):
 
     for n in range(N):
         if __debug__:
-            print(f"{n} ", flush=True, end=" ")
+            print(f"{n}", flush=True, end=" ")
         inner_matrix[n, 0:M] = inverse_fft_1D(matrix[n, 0:M])
 
     if __debug__:
@@ -232,13 +236,13 @@ def inverse_fft_2D(matrix : numpy.ndarray):
         
     return output_matrix
 
-def plot_dft(output_matrix):
+def plot_dft(output_matrix, image):
     """
     Plots the resulting output DFT on a log scale plot
     """
     #plot the result on a log scale using matplotlib lognor
-    
-    plt.imshow(numpy.real(output_matrix), norm=plc.LogNorm(), cmap='gray')
+
+    plt.imshow(output_matrix, norm=plc.LogNorm(), cmap=plt.cm.Greys, interpolation='none')
     plt.colorbar()
     plt.show()
     plt.savefig('filename.svg')    # oracle = numpy.fft.fft2(image, (512, 1024))
@@ -250,6 +254,21 @@ def save_dft(output_matrix):
     """
     numpy.savetxt('2d_dft.csv', output_matrix, delimiter=',')
  
+
+def denoise(output_matrix):
+    """
+    Given a FFT of an image, set all the frequencies near pi to zero and then invert to get back 
+    to the filtered original. 
+    """ 
+    for i in range(output_matrix): 
+        for j in range(output_matrix[i]): 
+            if (output_matrix[i][j] < (math.pi + 0.25) and output_matrix[i][j] > (math.pi -0.25)): 
+                output_matrix[i][j] = 0
+    
+    return inverse_fft_2D(output_matrix)
+
+
+
 
 def collect_args():
     parser = argparse.ArgumentParser()
@@ -263,6 +282,7 @@ def get_image(image_name):
     # read image as grayscale
     image = cv2.imread(image_name, 0)
 
+
 if __name__ == "__main__":
     args = collect_args()
     
@@ -275,16 +295,28 @@ if __name__ == "__main__":
 
     # pad image with zeros
     image2 = numpy.pad(image, ((0, 512 - image.shape[0]), (0, 1024 - image.shape[1])), 'constant')
-    # fft_2D(image)
-    #matrix = fft_2D(image)
-    # matrix = matrix[0:474,0:630]
+    
+    
+    #output = (fft_2D(image))
+    # print(output[0,0],"\n")
+    # print(output[0,1],"\n")
+    # print(output[0,2],"\n")
+    # print(output[0,3],"\n")
+    # print(output[0,4],"\n")
+    # print('correct output\n')
+    output2=((numpy.fft.fft(image2)))
+    print(output2[0,0],"\n")
+    print(output2[0,1],"\n")
+    print(output2[0,2],"\n")
+    print(output2[0,3],"\n")
+    print(output2[0,4],"\n")
+    #print(numpy.real(output))
+    # matrix = fft_2D(image)
+    matrix = output2[0:474,0:630]
     # print("about to plot")
-    # plot_dft(matrix)
+    plot_dft(numpy.abs(matrix), image)
 
-    inverse_fft_2D(image)
-    Z_dft = numpy.fft.ifft2(image2)
-    print("HELLO")
-    print(Z_dft)
+    # inverse_fft_2D(image)
 
     # plt.imshow(numpy.real(Z_dft), norm=plc.LogNorm(), cmap='gray')
     # plt.colorbar()
