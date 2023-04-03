@@ -260,15 +260,47 @@ def inverse_fft_2D(matrix : numpy.ndarray):
         
     return output_matrix
 
-def plot_dft(output_matrix, title):
+def plot_dft(output_matrix, save_as, title):
     """
-    Plots the resulting output DFT on a log scale plot
-    """
+    Plots the resulting output DFT/FFT on a log scale plot
+    """    
     #get the magnitude of the complex numbers
-    plt.imshow(numpy.abs(output_matrix), norm=plc.LogNorm(), cmap=plt.cm.Greys, interpolation='none')
+    plt.figure()
+    plt.imshow(numpy.abs(output_matrix), norm=plc.LogNorm(), cmap=plt.cm.Greys, interpolation='none') #Lognorm to logscale, numpy.abs to get the magnitude of the complex numbers
+    plt.suptitle(title)
     plt.colorbar()
     plt.show()
-    plt.savefig(title + '.svg')    # oracle = numpy.fft.fft2(image, (512, 1024))
+    plt.savefig(save_as + '.svg')    # oracle = numpy.fft.fft2(image, (512, 1024))
+
+def plot_dft_one(output_matrix, title, image):
+    """
+    Plots the resulting output DFT on a log scale plot besides its original image
+    """    
+    #create a figure with two subplots 
+    fig, (plot1, plot2) = plt.subplots(1,2, figsize=(12,7))
+
+    plot1.imshow(image, cmap='gray')
+    plot1.set_title('Original Image')
+    #get the magnitude of the complex numbers
+    plot2.imshow(numpy.abs(output_matrix), norm=plc.LogNorm(), cmap='gray', interpolation='none')
+    plot2.set_title('Fast Fourier Transform')
+    plt.show()
+    plt.savefig(title + '.svg')  
+
+def plot_two_transforms(fft1, fft2, title1, title2, save_as): 
+    """
+    Plots two FFT transforms besides each other 
+    """    
+    #create a figure with two subplots 
+    fig, (plot1, plot2) = plt.subplots(1,2, figsize=(10,5))
+
+    plot1.imshow(numpy.abs(fft1), norm=plc.LogNorm(), cmap='gray', interpolation='none')
+    plot1.set_title(title1)
+    #get the magnitude of the complex numbers
+    plot2.imshow(numpy.abs(fft2), norm=plc.LogNorm(), cmap='gray', interpolation='none')
+    plot2.set_title(title2)
+    plt.show()
+    plt.savefig(save_as + '.svg')  
 
 def filter_dft(output): 
     keep_fraction = 0.1
@@ -360,20 +392,20 @@ def mode_one(image):
     """
     output = fft_2D(image)
     output = output[0:474,0:630]
-    plot_dft(output, 'fft')
+
+    plot_dft_one(output, 'fft', image)
 
     return output
 
 def mode_two(image): 
     output = fft_2D(image)
-    #output = numpy.fft.fft2(image)
-    #output = output[0:474,0:630]
+
     filtered = filter_dft(output)
 
     im_new = inverse_fft_2D(filtered).real
-    expected = numpy.fft.ifft2(filtered).real
-    plot_dft(im_new[0:474,0:630], 'reconstructed')
-    plot_dft(expected[0:474,0:630], 'expected')
+    #expected = numpy.fft.ifft2(filtered).real
+    plot_dft(im_new[0:474,0:630], 'reconstructed', "Filtered Image")
+    #plot_dft(expected[0:474,0:630], 'expected', "Expected Inverse")
 
 def mode_three(image):
     """
@@ -433,7 +465,12 @@ if __name__ == "__main__":
             # ! Temp mode for testing by using the oracle
             print("Mode 5")
             matrix = numpy.fft.fft2(image2)
-            plot_dft(matrix[0:474, 0:630], 'fft')
+            matrix = matrix[0:474, 0:630]
+
+            output = fft_2D(image)
+            output = output[0:474,0:630]
+            plot_two_transforms(matrix, output, "Numpy FFT", "Implemented FFT", "fft")
+
         case _:
             print("Invalid mode")
 
