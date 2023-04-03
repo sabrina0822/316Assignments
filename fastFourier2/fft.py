@@ -149,7 +149,7 @@ def fft_2D(matrix : numpy.ndarray):
     if __debug__:
         print(f"\n\nFFT 2D - Output Matrix:\n{output_matrix}\n\n")
         
-    return numpy.abs(output_matrix)
+    return output_matrix
 
 def inverse_dft_1D(vector: numpy.ndarray): 
     """
@@ -179,9 +179,10 @@ def inverse_fft_1D(row_vector : numpy.ndarray):
     N = 2 ** pow2
 
     # Pad vector with zeros
-    row_vector = numpy.pad(row_vector, (0, N - len(row_vector)), 'constant')
+    #row_vector = numpy.pad(row_vector, (0, N - len(row_vector)), 'constant')
 
     output_vector = numpy.zeros(N, dtype=complex)
+    x[n] = (1/N) * sum(k=0 to N-1) { outut_vector[k] * exp(j * 2*pi * n * k / N) }
 
     tmpconj = numpy.conj(row_vector)
 
@@ -189,7 +190,7 @@ def inverse_fft_1D(row_vector : numpy.ndarray):
 
     output_vector = Xconj / N
 
-    return output_vector
+    return output_vector 
 
 def inverse_fft_2D(matrix : numpy.ndarray):
     """
@@ -236,39 +237,62 @@ def inverse_fft_2D(matrix : numpy.ndarray):
         
     return output_matrix
 
-def plot_dft(output_matrix, image):
+def plot_dft(output_matrix, title):
     """
     Plots the resulting output DFT on a log scale plot
     """
-    #plot the result on a log scale using matplotlib lognor
-
-    plt.imshow(output_matrix, norm=plc.LogNorm(), cmap=plt.cm.Greys, interpolation='none')
+    #get the magnitude of the complex numbers
+    plt.imshow(numpy.abs(output_matrix), norm=plc.LogNorm(), cmap=plt.cm.Greys, interpolation='none')
     plt.colorbar()
     plt.show()
-    plt.savefig('filename.svg')    # oracle = numpy.fft.fft2(image, (512, 1024))
+    plt.savefig(title + '.svg')    # oracle = numpy.fft.fft2(image, (512, 1024))
 
+def filter_dft(output): 
+    keep_fraction = 0.1
+    modified_output = output.copy()
+    rows, columns = modified_output.shape
+    # Set r and c to be the number of rows and columns of the array.
+
+    # Set to zero all rows with indices between r*keep_fraction and
+    # r*(1-keep_fraction):
+    modified_output[int(rows*keep_fraction):int(rows*(1-keep_fraction))] = 0
+
+    # Similarly with the columns:
+    modified_output[:, int(columns*keep_fraction):int(columns*(1-keep_fraction))] = 0
+
+    plt.figure()
+    plot_dft(modified_output, 'filtered')
+    plt.show()
+
+    return modified_output
 
 def save_dft(output_matrix):
     """
     Saves the resulting output DFT on a csv or txt file
     """
     numpy.savetxt('2d_dft.csv', output_matrix, delimiter=',')
- 
 
-def denoise(output_matrix):
+
+def mode_one(image): 
     """
-    Given a FFT of an image, set all the frequencies near pi to zero and then invert to get back 
-    to the filtered original. 
-    """ 
-    for i in range(output_matrix): 
-        for j in range(output_matrix[i]): 
-            if (output_matrix[i][j] < (math.pi + 0.25) and output_matrix[i][j] > (math.pi -0.25)): 
-                output_matrix[i][j] = 0
-    
-    return inverse_fft_2D(output_matrix)
+    Given an image, perform a 2D FFT on the image and then plot the resulting output DFT on a log scale plot
+    """
+    output = fft_2D(image)
+    output = output[0:474,0:630]
+    plot_dft(output, 'fft')
 
+    return output
 
+def mode_two(image): 
+    output = fft_2D(image)
+    #output = numpy.fft.fft2(image)
+    #output = output[0:474,0:630]
+    filtered = filter_dft(output)
 
+    im_new = inverse_fft_2D(filtered).real
+    expected = numpy.fft.ifft2(filtered).real
+    plot_dft(im_new[0:474,0:630], 'reconstructed')
+    plot_dft(expected[0:474,0:630], 'expected')
 
 def collect_args():
     parser = argparse.ArgumentParser()
@@ -295,49 +319,26 @@ if __name__ == "__main__":
 
     # pad image with zeros
     image2 = numpy.pad(image, ((0, 512 - image.shape[0]), (0, 1024 - image.shape[1])), 'constant')
-    
-    
-    #output = (fft_2D(image))
-    # print(output[0,0],"\n")
-    # print(output[0,1],"\n")
-    # print(output[0,2],"\n")
-    # print(output[0,3],"\n")
-    # print(output[0,4],"\n")
-    # print('correct output\n')
-    output2=((numpy.fft.fft(image2)))
-    print(output2[0,0],"\n")
-    print(output2[0,1],"\n")
-    print(output2[0,2],"\n")
-    print(output2[0,3],"\n")
-    print(output2[0,4],"\n")
+
+    #mode_one(image)
+    mode_two(image)
     #print(numpy.real(output))
     # matrix = fft_2D(image)
-    matrix = output2[0:474,0:630]
+    #matrix = output2[0:474,0:630]
     # print("about to plot")
-    plot_dft(numpy.abs(matrix), image)
-
-    # inverse_fft_2D(image)
-
-    # plt.imshow(numpy.real(Z_dft), norm=plc.LogNorm(), cmap='gray')
-    # plt.colorbar()
-    # plt.show
-    # plt.savefig('expectedOuptut.svg')    # oracle = numpy.fft.fft2(image, (512, 1024))
-    # save_dft(matrix)
 
     print("here")
 
-    # pad the vector with zeros
-    #vector2 = numpy.pad(vector, (0, 1024 - len(vector)), 'constant')
-    #print(vector)
-    #print("\n\n")
-    #print(numpy.real(inverse_dft_2(dft_1D(vector2))*1/1024))
-    # print("\n\n\n")
-    # print(numpy.real(inverse_fft_2D(fft_2D(image))))
-
-    # print(f"Oracle:\n{oracle}\n\n")
 
 """
 Notes for sabrina: 
+
+
+for each frequency: the magnitude (abs value) of the complex value represents the amplitude 
+of a constintuent complex sinusoid at that frequency integrated over the domain 
+
+the argument of the complex value represents the phase of the same sinusoid
+
 Mode 1: 
     Perform FFT 
     Output a one by two subplot of the original image 
