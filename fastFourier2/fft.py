@@ -6,11 +6,14 @@ import cv2
 import math
 import cmath
 import threading
+import time
 
 # Global variables
 
 # default image is 474 by 630 pixels
 image = None
+height = 0
+width = 0
 
 def dft_1D(vector : numpy.ndarray): 
     """
@@ -317,11 +320,11 @@ def filter_dft(output):
 
     return modified_output
 
-def save_dft(output_matrix):
+def save_dft(output_matrix, title):
     """
     Saves the resulting output DFT on a csv or txt file
     """
-    numpy.savetxt('2d_dft.csv', output_matrix, delimiter=',')
+    numpy.savetxt(title+'.csv', output_matrix, delimiter=',')
 
 def upper_threshold(sorted_fft, p,fft): 
     """
@@ -343,41 +346,60 @@ def compress_two_threshold(sorted_fft, upper, lower, fft):
 
     return fft
 
-def compress_fft(fft, percent, name): 
+def compress_fft(fft, percent): 
     """
     Given the fourier coefficients of an image, remove the highest coefficients 
     """
     #start by sorting all of the coefficients 
-    #fft = fft[0:474,0:630]
+    #fft = fft[0:height,0:width]
     sorted_fft = numpy.sort(numpy.abs(fft.reshape(-1)));
 
     set_zero = upper_threshold(sorted_fft, percent, fft)
     inverted = inverse_fft_2D(set_zero)
-    inverted = inverted[0:474,0:630]
+    inverted = inverted[0:height,0:width]
+    print(inverted)
 
-    plt.figure()
-    plt.imshow(numpy.abs(inverted), norm=plc.LogNorm(), cmap=plt.cm.Greys, interpolation='none') 
-    plt.savefig(name + '.svg')
-    plt.show()
-    return
+    return inverted
 
 
-def compress_two(fft): 
+def compress_two(fft, percent): 
     """
     given fft, keep the lowest frequencies and a fraction of the largest coefficient 
     """
     #start by sorting all of the coefficients 
-   # fft = fft[0:474,0:630]
+   # fft = fft[0:height,0:width]
     sorted_fft = numpy.sort(numpy.abs(fft.reshape(-1)));
 
-    set_zero = compress_two_threshold(sorted_fft, 0.1, 0.1, fft)
-
+    set_zero = compress_two_threshold(sorted_fft, percent, percent, fft)
+    
     inverted = inverse_fft_2D(set_zero)
-    inverted = inverted[0:474,0:630]
-    plt.figure()
-    plt.imshow(numpy.abs(inverted), norm=plc.LogNorm(), cmap=plt.cm.Greys, interpolation='none') 
-    plt.savefig('compressed2.svg')
+    inverted = inverted[0:height,0:width]
+
+    return inverted
+
+def compressed_subplot(fft): 
+    fig, axs = plt.subplots(2,3, figsize=(20,10))
+    percents = [0,.19,.38,.57,.76,.95]
+    count = 0;
+        
+    for i in range(2): 
+        for j in range(3): 
+            percent= percents[count]
+            title = (str((percent*100))+"'%' compression")
+            print(percent)
+            compressed = compress_fft(fft, percent)
+            print(compressed)
+            axs[i,j].imshow(numpy.abs(compressed), norm=plc.LogNorm(), cmap='gray', interpolation='none')
+            axs[i,j].set_title(title)
+
+            csv_name = (str(percent*100)+"_compress")
+            save_dft(compressed, csv_name)
+            plt.show()
+            plt.savefig('compressed_subplot'+str(count)+'.svg')  
+
+            count = count + 1;
     plt.show()
+    plt.savefig('compressed_subplot.svg')  
     return
 
 def mode_one(image): 
@@ -385,7 +407,7 @@ def mode_one(image):
     Given an image, perform a 2D FFT on the image and then plot the resulting output DFT on a log scale plot
     """
     output = fft_2D(image)
-    output = output[0:474,0:630]
+    output = output[0:height,0:width]
 
     plot_dft_one(output, 'fft', image)
 
@@ -399,24 +421,42 @@ def mode_two(image):
 
     im_new = inverse_fft_2D(filtered).real
     #expected = numpy.fft.ifft2(filtered).real
-    plot_dft(im_new[0:474,0:630], 'denoised', "Denoised Image")
-    #plot_dft(expected[0:474,0:630], 'expected', "Expected Inverse")
+    plot_dft(im_new[0:height,0:width], 'denoised', "Denoised Image")
+    #plot_dft(expected[0:height,0:width], 'expected', "Expected Inverse")
 
 def mode_three(image):
     """
-    
+    Compress the image with percents ranging from 0-95%
     """
     fft = fft_2D(image)
-
-    #compress_fft(fft, 0, "original")
-    compress_fft(fft, 0.1, "compressed")
-
-    compress_two(fft)
+    #compress_fft(fft, .76)
+    compressed_subplot(fft)
     return
 
 
 def mode_four(image):
-    return
+    """
+    Performance testing for 2D transforms between 2^5 and 2^10
+    """
+    if __debug__:
+        print("Performance testing for 2D transforms between 2^5 and 2^10")
+    
+    # create 2D array of size 2^5 to 2^10
+    for i in range(5, 11):
+        size = 2**i
+        array = numpy.random.random((size, size))
+        # perform 2D DFT
+        dft_start = time.time()
+        dft_2D(array)
+        dft_end = time.time()
+        # print time taken
+        print(f"Time taken for 2D FFT of size 2^{i}: {dft_end - dft_start}")
+        # perform 2D FFT
+        fft_start = time.time()
+        fft_2D(array)
+        fft_end = time.time()
+        # print time taken
+        print(f"Time taken for 2D FFT of size 2^{i}: {fft_end - fft_start}")
 
 def collect_args():
     parser = argparse.ArgumentParser()
@@ -426,9 +466,10 @@ def collect_args():
     return  parser.parse_args()
 
 def get_image(image_name):
-    global image
+    global image, height, width
     # read image as grayscale
     image = cv2.imread(image_name, 0)
+    height, width = image.shape
 
 if __name__ == "__main__":
     args = collect_args()
@@ -460,10 +501,10 @@ if __name__ == "__main__":
             # ! Temp mode for testing by using the oracle
             print("Mode 5")
             matrix = numpy.fft.fft2(image2)
-            matrix = matrix[0:474, 0:630]
+            matrix = matrix[0:height, 0:width]
 
             output = fft_2D(image)
-            output = output[0:474,0:630]
+            output = output[0:height,0:width]
             plot_two_transforms(matrix, output, "Numpy FFT", "Implemented FFT", "fft")
 
         case _:
