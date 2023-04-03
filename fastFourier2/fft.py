@@ -295,6 +295,64 @@ def save_dft(output_matrix):
     """
     numpy.savetxt('2d_dft.csv', output_matrix, delimiter=',')
 
+def upper_threshold(sorted_fft, p,fft): 
+    #given a sorted matrix (lowest to highest)
+    #take the top percent of values and zero all other values 
+
+    threshold = sorted_fft[int((1-p)/100 * len(sorted_fft))]
+
+    print("here")
+    print(int((1-p)/100 * len(sorted_fft)))
+    print(threshold)
+    lower_values = numpy.abs(fft)>threshold
+
+    return (fft * lower_values)
+
+def compress_two_threshold(sorted_fft, upper, lower, fft): 
+    upper_threshold = sorted_fft[int((1-upper)/100 * len(sorted_fft))]
+    lower_threshold = sorted_fft[int((lower)/100 * len(sorted_fft))]
+
+    mask = (numpy.abs(fft) > lower_threshold) & (numpy.abs(fft) < upper_threshold)
+    fft[mask] = 0 
+
+    return fft
+
+def compress_fft(fft, percent, name): 
+    """
+    Given the fourier coefficients of an image, remove the highest coefficients 
+    """
+    #start by sorting all of the coefficients 
+    #fft = fft[0:474,0:630]
+    sorted_fft = numpy.sort(numpy.abs(fft.reshape(-1)));
+
+    set_zero = upper_threshold(sorted_fft, percent, fft)
+    inverted = inverse_fft_2D(set_zero)
+    inverted = inverted[0:474,0:630]
+
+    plt.figure()
+    plt.imshow(numpy.abs(inverted), norm=plc.LogNorm(), cmap=plt.cm.Greys, interpolation='none') 
+    plt.savefig(name + '.svg')
+    plt.show()
+    return
+
+
+def compress_two(fft): 
+    """
+    given fft, keep the lowest frequencies and a fraction of the largest coefficient 
+    """
+    #start by sorting all of the coefficients 
+   # fft = fft[0:474,0:630]
+    sorted_fft = numpy.sort(numpy.abs(fft.reshape(-1)));
+
+    set_zero = compress_two_threshold(sorted_fft, 0.1, 0.1, fft)
+
+    inverted = inverse_fft_2D(set_zero)
+    inverted = inverted[0:474,0:630]
+    plt.figure()
+    plt.imshow(numpy.abs(inverted), norm=plc.LogNorm(), cmap=plt.cm.Greys, interpolation='none') 
+    plt.savefig('compressed2.svg')
+    plt.show()
+    return
 
 def mode_one(image): 
     """
@@ -318,6 +376,15 @@ def mode_two(image):
     plot_dft(expected[0:474,0:630], 'expected')
 
 def mode_three(image):
+    """
+    
+    """
+    fft = fft_2D(image)
+
+    #compress_fft(fft, 0, "original")
+    compress_fft(fft, 0.1, "compressed")
+
+    compress_two(fft)
     return
 
 
@@ -335,7 +402,6 @@ def get_image(image_name):
     global image
     # read image as grayscale
     image = cv2.imread(image_name, 0)
-
 
 if __name__ == "__main__":
     args = collect_args()
@@ -433,3 +499,4 @@ Mode 4:
 # 3. Mode 3 - Sabrina
 # 4. Mode 4 (runtime) - Mathieu
 # 5. report
+# 6. mode 2 - add original image - sabrina
