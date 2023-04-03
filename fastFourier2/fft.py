@@ -182,15 +182,38 @@ def inverse_fft_1D(row_vector : numpy.ndarray):
     #row_vector = numpy.pad(row_vector, (0, N - len(row_vector)), 'constant')
 
     output_vector = numpy.zeros(N, dtype=complex)
-    x[n] = (1/N) * sum(k=0 to N-1) { outut_vector[k] * exp(j * 2*pi * n * k / N) }
+    # x[n] = (1/N) * sum(k=0 to N-1) { outut_vector[k] * exp(j * 2*pi * n * k / N) }
 
-    tmpconj = numpy.conj(row_vector)
+    # ! Old version of inverse
+    # tmpconj = numpy.conj(row_vector)
 
-    Xconj = fft_1D(tmpconj)
+    # Xconj = fft_1D(tmpconj)
 
-    output_vector = Xconj / N
+    # output_vector = Xconj / N
 
-    return output_vector 
+    # return output_vector 
+
+    # ! New version of inverse
+    # TODO Chose proper base case
+    # Base case
+    if N == 8:
+        return inverse_dft_1D(row_vector)
+    else:
+        # Split vector into even and odd indices
+        even = row_vector[0::2]
+        odd = row_vector[1::2]
+
+        # Calculate FFT of even and odd indices
+        even_fft = inverse_fft_1D(even)
+        odd_fft = inverse_fft_1D(odd)
+
+        # Calculate the output vector
+        output_vector = numpy.zeros(N, dtype=complex)
+        for k in range(N // 2):
+            output_vector[k] = even_fft[k] + odd_fft[k] * cmath.exp(1j * 2 * math.pi * k / N)
+            output_vector[k + N//2] = even_fft[k] - odd_fft[k] * cmath.exp(1j * 2 * math.pi * k / N)
+
+        return output_vector / N
 
 def inverse_fft_2D(matrix : numpy.ndarray):
     """
@@ -255,7 +278,7 @@ def filter_dft(output):
 
     # Set to zero all rows with indices between r*keep_fraction and
     # r*(1-keep_fraction):
-    modified_output[int(rows*keep_fraction):int(rows*(1-keep_fraction))] = 0
+    modified_output[int(rows*keep_fraction):int(rows*(1-keep_fraction)), :] = 0
 
     # Similarly with the columns:
     modified_output[:, int(columns*keep_fraction):int(columns*(1-keep_fraction))] = 0
@@ -294,9 +317,16 @@ def mode_two(image):
     plot_dft(im_new[0:474,0:630], 'reconstructed')
     plot_dft(expected[0:474,0:630], 'expected')
 
+def mode_three(image):
+    return
+
+
+def mode_four(image):
+    return
+
 def collect_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-m', type=str, default="1")
+    parser.add_argument('-m', type=int, default=1)
     parser.add_argument('-i', type=str, default="moonlanding.png")
 
     return  parser.parse_args()
@@ -320,15 +350,26 @@ if __name__ == "__main__":
     # pad image with zeros
     image2 = numpy.pad(image, ((0, 512 - image.shape[0]), (0, 1024 - image.shape[1])), 'constant')
 
-    #mode_one(image)
-    mode_two(image)
-    #print(numpy.real(output))
-    # matrix = fft_2D(image)
-    #matrix = output2[0:474,0:630]
-    # print("about to plot")
-
-    print("here")
-
+    match mode:
+        case 1:
+            print("Mode 1")
+            mode_one(image)
+        case 2:
+            print("Mode 2")
+            mode_two(image)
+        case 3:
+            print("Mode 3")
+            mode_three(image)
+        case 4:
+            print("Mode 4")
+            mode_four(image)
+        case 5:
+            # ! Temp mode for testing by using the oracle
+            print("Mode 5")
+            matrix = numpy.fft.fft2(image2)
+            plot_dft(matrix[0:474, 0:630], 'fft')
+        case _:
+            print("Invalid mode")
 
 """
 Notes for sabrina: 
@@ -385,3 +426,10 @@ Mode 4:
     Produce plots that summarize the runtime complexity of your algorithms 
     Code should print the means and variances of the runtime of your algorithms vs the problem size
 """
+
+# TODO:
+# 1. Fix inverse - Mathieu
+# 2. Fix OG? - later
+# 3. Mode 3 - Sabrina
+# 4. Mode 4 (runtime) - Mathieu
+# 5. report
