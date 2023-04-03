@@ -315,10 +315,6 @@ def filter_dft(output):
     # Similarly with the columns:
     modified_output[:, int(columns*keep_fraction):int(columns*(1-keep_fraction))] = 0
 
-    plt.figure()
-    plot_dft(modified_output, 'filtered')
-    plt.show()
-
     return modified_output
 
 def save_dft(output_matrix):
@@ -328,14 +324,12 @@ def save_dft(output_matrix):
     numpy.savetxt('2d_dft.csv', output_matrix, delimiter=',')
 
 def upper_threshold(sorted_fft, p,fft): 
-    #given a sorted matrix (lowest to highest)
-    #take the top percent of values and zero all other values 
+    """
+    Given a sorted matrix (lowest to highest), take the top percent of values and zero all other values 
+    """
 
     threshold = sorted_fft[int((1-p)/100 * len(sorted_fft))]
 
-    print("here")
-    print(int((1-p)/100 * len(sorted_fft)))
-    print(threshold)
     lower_values = numpy.abs(fft)>threshold
 
     return (fft * lower_values)
@@ -400,11 +394,12 @@ def mode_one(image):
 def mode_two(image): 
     output = fft_2D(image)
 
+    #method 2
     filtered = filter_dft(output)
 
     im_new = inverse_fft_2D(filtered).real
     #expected = numpy.fft.ifft2(filtered).real
-    plot_dft(im_new[0:474,0:630], 'reconstructed', "Filtered Image")
+    plot_dft(im_new[0:474,0:630], 'denoised', "Denoised Image")
     #plot_dft(expected[0:474,0:630], 'expected', "Expected Inverse")
 
 def mode_three(image):
