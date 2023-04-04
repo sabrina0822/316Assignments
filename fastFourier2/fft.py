@@ -372,7 +372,7 @@ def compress_two(fft, percent):
    # fft = fft[0:height,0:width]
     sorted_fft = numpy.sort(numpy.abs(fft.reshape(-1)));
 
-    set_zero = compress_two_threshold(sorted_fft, percent, percent, fft)
+    set_zero = compress_two_threshold(sorted_fft, percent, 0.1, fft)
     
     inverted = inverse_fft_2D(set_zero)
     inverted = inverted[0:height,0:width]
@@ -396,7 +396,6 @@ def compressed_subplot(fft):
 
             csv_name = (str(percent*100)+"_compress")
             save_dft(compressed, csv_name)
-            plt.show()
             plt.savefig('compressed_subplot'+str(count)+'.svg')  
 
             count = count + 1;
