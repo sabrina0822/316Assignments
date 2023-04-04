@@ -7,6 +7,8 @@ import math
 import cmath
 import threading
 import time
+import multiprocessing
+
 
 # Global variables
 
@@ -402,6 +404,32 @@ def compressed_subplot(fft):
     plt.savefig('compressed_subplot.svg')  
     return
 
+def test_transforms(thread_num):
+    # create 2D array of size 2^5 to 2^10
+    dft_res = [0] * 6
+    fft_res = [0] * 6
+    for i in range(5, 11):
+        size = 2**i
+        array = numpy.random.random((size, size))
+
+        # perform 2D DFT
+        dft_start = time.time()
+        dft_2D(array)
+        dft_end = time.time()
+        # compute time taken
+        print(f"{thread_num}: DFT - 2^{i}: {dft_end - dft_start} s")
+        dft_res[i-5] = dft_end - dft_start
+
+        # perform 2D FFT
+        fft_start = time.time()
+        fft_2D(array)
+        fft_end = time.time()
+        # compute time taken
+        print(f"{thread_num}: FFT - 2^{i}: {fft_end - fft_start} s")
+        fft_res[i-5] = fft_end - fft_start
+    
+    return dft_res, fft_res
+
 def mode_one(image): 
     """
     Given an image, perform a 2D FFT on the image and then plot the resulting output DFT on a log scale plot
@@ -434,29 +462,62 @@ def mode_three(image):
     return
 
 
-def mode_four(image):
+def mode_four():
     """
     Performance testing for 2D transforms between 2^5 and 2^10
     """
+    max_matrix_size = 11
     if __debug__:
         print("Performance testing for 2D transforms between 2^5 and 2^10")
     
-    # create 2D array of size 2^5 to 2^10
-    for i in range(5, 11):
-        size = 2**i
-        array = numpy.random.random((size, size))
-        # perform 2D DFT
-        dft_start = time.time()
-        dft_2D(array)
-        dft_end = time.time()
-        # print time taken
-        print(f"Time taken for 2D FFT of size 2^{i}: {dft_end - dft_start}")
-        # perform 2D FFT
-        fft_start = time.time()
-        fft_2D(array)
-        fft_end = time.time()
-        # print time taken
-        print(f"Time taken for 2D FFT of size 2^{i}: {fft_end - fft_start}")
+    # multiprocessing for performance testing
+    with multiprocessing.Pool(10) as pool:
+        results = pool.map(test_transforms, range(10))
+
+    # create matrix for data
+    dft_data = numpy.zeros((6, 10))
+    fft_data = numpy.zeros((6, 10))
+    # put results in 2d array
+    for i in range(10):
+        for j in range(5, max_matrix_size):
+            dft_data[j-5, i] = results[i][0][j-5]
+            fft_data[j-5, i] = results[i][1][j-5]
+
+    avg_dft = numpy.zeros(6)
+    std_dft = numpy.zeros(6)
+    avg_fft = numpy.zeros(6)
+    std_fft = numpy.zeros(6)
+
+    # calculate average and std
+    print("DFT:\tSize \tMean \t\t\t\tStd:")
+    for i in range(5, max_matrix_size):
+        avg_dft[i-5] = numpy.average(dft_data[i-5, :])
+        std_dft[i-5] = numpy.std(dft_data[i-5, :])
+        print(f"\t2^{i} \t{numpy.average(dft_data[i-5, :])} \t\t{numpy.std(dft_data[i-5, :])}")
+
+    print("\nFFT:\tSize: \tMean \t\t\t\tStd")
+    for i in range(5, max_matrix_size):
+        avg_fft[i-5] = numpy.average(fft_data[i-5, :])
+        std_fft[i-5] = numpy.std(fft_data[i-5, :])
+        print(f"\t2^{i} \t{numpy.average(fft_data[i-5, :])} \t\t{numpy.std(fft_data[i-5, :])}")
+
+    # compute error bars
+    std_dft = std_dft * 2
+    std_fft = std_fft * 2
+   
+    # plot data with error bars
+    plt.figure()
+    plt.errorbar(list(range(5,11)), avg_dft, yerr=std_dft, label="DFT")
+    plt.errorbar(list(range(5,11)), avg_fft, yerr=std_fft, label="FFT")
+    plt.title("Performance of 2D DFT and FFT")
+    plt.xlabel("Size of the 2D array (2^x)")
+    plt.ylabel("Time (s)")
+    plt.legend()
+    plt.savefig("performance.png")
+    plt.show()
+
+
+    
 
 def collect_args():
     parser = argparse.ArgumentParser()
@@ -496,7 +557,7 @@ if __name__ == "__main__":
             mode_three(image)
         case 4:
             print("Mode 4")
-            mode_four(image)
+            mode_four()
         case 5:
             # ! Temp mode for testing by using the oracle
             print("Mode 5")
