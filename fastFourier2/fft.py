@@ -578,79 +578,7 @@ if __name__ == "__main__":
         case 4:
             print("Mode 4")
             mode_four()
-        case 5:
-            # ! Temp mode for testing by using the oracle
-            print("Mode 5")
-            matrix = numpy.fft.fft2(image2)
-            matrix = matrix[0:height, 0:width]
-
-            output = fft_2D(image)
-            output = output[0:height, 0:width]
-            plot_two_transforms(matrix, output, "Numpy FFT", "Implemented FFT", "fft")
 
         case _:
             print("Invalid mode")
 
-"""
-Notes for sabrina: 
-
-
-for each frequency: the magnitude (abs value) of the complex value represents the amplitude 
-of a constintuent complex sinusoid at that frequency integrated over the domain 
-
-the argument of the complex value represents the phase of the same sinusoid
-
-Mode 1: 
-    Perform FFT 
-    Output a one by two subplot of the original image 
-    besides the subplot output its fourier transform 
-
-    Fourier transform needs to be log scaled --> LogNorm from matplotlib.colours
-    Produces a logarithmic colour map???
-
-
-Mode 2: 
-    Output a 1x2 subplot of original image next to its denoised version
-
-    denoised version: 
-    take the FFt of the image and set all high frequencies to zero before 
-    inverting back to the filtered original 
-
-    "high" frequencies can be determined from trial and error 
-
-    FFT is from 0 to 2pi --> any frequency close to 0 or 2 pi is considered low 
-
-    Program should also print the number of non-zeroes using and the fraction 
-    they represent of th eoriginal Fourier coefficients 
-
-Mode 3: 
-    Take the FFT of the image to compress it 
-    Compression comes from setting some fourier coefficients to 0 
-        1.can threshold the coefficient's magnitude and take only the largest percentile of them?????
-        2.keep all the coefficients of very low frequencies as well as a fraction of the largest coefficients 
-        from higher frequencies to also filter the image at the same time 
-
-        Experiment with various schemes and decide what works best and justify it in the report 
-    
-    Then 
-    Display a 2x3 subplot of the image at 6 different compression levels 
-        start from original image (0%) 
-        to setting 95% of the coefficients to 0 
-
-    Get the images by inverse transofrming the modified Fourier coefficients 
-
-    Save the Fourier transform matrix of coefficients in a csv, txt or soemthing else 
-    Program should print the number of nonszero Fourier coefficients in each of the 6 images 
-
-Mode 4: 
-    Produce plots that summarize the runtime complexity of your algorithms 
-    Code should print the means and variances of the runtime of your algorithms vs the problem size
-"""
-
-# TODO:
-# 1. Fix inverse - Mathieu
-# 2. Fix OG? - later
-# 3. Mode 3 - Sabrina
-# 4. Mode 4 (runtime) - Mathieu
-# 5. report
-# 6. mode 2 - add original image - sabrina
