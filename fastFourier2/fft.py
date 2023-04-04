@@ -578,7 +578,6 @@ if __name__ == "__main__":
         case 4:
             print("Mode 4")
             mode_four()
-
         case _:
             print("Invalid mode")
 
