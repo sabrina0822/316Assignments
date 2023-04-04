@@ -494,7 +494,7 @@ def mode_four():
         std_dft[i-5] = numpy.std(dft_data[i-5, :])
         print(f"\t2^{i} \t{numpy.average(dft_data[i-5, :])} \t\t{numpy.std(dft_data[i-5, :])}")
 
-    print("\nFFT:\tSize: \tMean \t\t\t\tStd")
+    print("\nFFT:\tSize \tMean \t\t\t\tStd")
     for i in range(5, max_matrix_size):
         avg_fft[i-5] = numpy.average(fft_data[i-5, :])
         std_fft[i-5] = numpy.std(fft_data[i-5, :])
