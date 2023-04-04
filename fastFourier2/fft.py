@@ -5,7 +5,6 @@ import matplotlib.colors as plc
 import cv2
 import math
 import cmath
-import threading
 import time
 import multiprocessing
 
@@ -38,9 +37,6 @@ def dft_2D(matrix : numpy.ndarray):
     Calculate the DFT of the given 2D input signal
     Input: a 2D array of values
     """ 
-    if __debug__:
-        print(f"DFT 2D - Input Matrix:\n{matrix}\n\n")
-
     # N rows, M columns
     N, M = matrix.shape
 
@@ -48,26 +44,11 @@ def dft_2D(matrix : numpy.ndarray):
     output_matrix = numpy.zeros(matrix.shape, dtype=complex)
     inner_matrix = numpy.zeros(matrix.shape, dtype=complex)
         
-    if __debug__:
-        print("Row: ", flush=True, end="")
-
     for n in range(N):
-        if __debug__:
-            if n % 10 == 0:
-                print(f"{n} ", flush=True, end=" ")
         inner_matrix[n, 0:M] = dft_1D(matrix[n, 0:M])
 
-    if __debug__:
-        print(f"\n\nCol: ", flush=True, end="")
-
     for m in range(M):
-        if __debug__:
-            if m % 10 == 0:
-                print(f"{m}", flush=True, end=" ")
         output_matrix[0:N, m] = dft_1D(inner_matrix[0:N, m])
-
-    if __debug__:
-        print(f"\n\nDFT 2D - Output Matrix:\n{output_matrix}\n\n")
 
     return output_matrix
 
@@ -114,9 +95,6 @@ def fft_2D(matrix : numpy.ndarray):
     Calculate the FFT of the given 2D input signal
     Input: a 2D array of values
     """ 
-    if __debug__:
-        print(f"FFT 2D - Input Matrix:\n{matrix}\n\n")
-
     # N rows, M columns
     N, M = matrix.shape
 
@@ -133,27 +111,13 @@ def fft_2D(matrix : numpy.ndarray):
     output_matrix = numpy.zeros((N, M), dtype=complex)
     inner_matrix = numpy.zeros((N, M), dtype=complex)
         
-    if __debug__:
-        print("Row: ", flush=True, end="")
 
     for n in range(N):
-        if __debug__:
-            if n % 10 == 0:
-                print(f"{n}", flush=True, end=" ")
         inner_matrix[n, 0:M] = fft_1D(matrix[n, 0:M])
 
-    if __debug__:
-        print(f"\n\nCol: ", flush=True, end="")
-
     for m in range(M):
-        if __debug__:
-            if m % 10 == 0:
-                print(f"{m}", flush=True, end=" ")
         output_matrix[0:N, m] = fft_1D(inner_matrix[0:N, m])
-
-    if __debug__:
-        print(f"\n\nFFT 2D - Output Matrix:\n{output_matrix}\n\n")
-        
+ 
     return output_matrix
 
 def inverse_dft_1D(vector: numpy.ndarray): 
@@ -225,8 +189,6 @@ def inverse_fft_2D(matrix : numpy.ndarray):
     Calculate the FFT of the given 2D input signal
     Input: a 2D array of values
     """ 
-    if __debug__:
-        print(f"Inverse FFT 2D - Input Matrix:\n{matrix}\n\n")
 
     # N rows, M columns
     N, M = matrix.shape
@@ -244,25 +206,15 @@ def inverse_fft_2D(matrix : numpy.ndarray):
     output_matrix = numpy.zeros((N, M), dtype=complex)
     inner_matrix = numpy.zeros((N, M), dtype=complex)
         
-    if __debug__:
-        print("Row: ", flush=True, end="")
 
     for n in range(N):
-        if __debug__:
-            print(f"{n}", flush=True, end=" ")
         inner_matrix[n, 0:M] = inverse_fft_1D(matrix[n, 0:M])
 
-    if __debug__:
-        print(f"\n\nCol: ", flush=True, end="")
 
     for m in range(M):
-        if __debug__:
-            print(f"{m}", flush=True, end=" ")
         output_matrix[0:N, m] = inverse_fft_1D(inner_matrix[0:N, m])
 
-    if __debug__:
-        print(f"\n\nInverse FFT 2D - Output Matrix:\n{output_matrix}\n\n")
-        
+
     return output_matrix
 
 def plot_dft(output_matrix, save_as, title):
@@ -333,18 +285,27 @@ def upper_threshold(sorted_fft, p,fft):
     Given a sorted matrix (lowest to highest), take the top percent of values and zero all other values 
     """
 
-    threshold = sorted_fft[int((1-p)/100 * len(sorted_fft))]
+    threshold = sorted_fft[int(p * len(sorted_fft))]
 
     lower_values = numpy.abs(fft)>threshold
 
     return (fft * lower_values)
 
 def compress_two_threshold(sorted_fft, upper, lower, fft): 
-    upper_threshold = sorted_fft[int((1-upper)/100 * len(sorted_fft))]
-    lower_threshold = sorted_fft[int((lower)/100 * len(sorted_fft))]
+    upper_threshold = sorted_fft[int(upper * len(sorted_fft))]
+    lower_threshold = sorted_fft[int((1-lower) * len(sorted_fft))]
 
-    mask = (numpy.abs(fft) > lower_threshold) & (numpy.abs(fft) < upper_threshold)
-    fft[mask] = 0 
+    set_zeros = fft
+    mask = (numpy.abs(fft) < lower_threshold) & (numpy.abs(fft) > upper_threshold)
+    set_zeros[mask] = 0 
+    zeros = 0
+    for s in set_zeros: 
+        for k in s: 
+            if k == 0 :
+                zeros = zeros + 1
+
+    print("Compression level: " + str(int(upper*100)) + " Number of zeros: " + str(zeros))
+
 
     return fft
 
@@ -357,9 +318,17 @@ def compress_fft(fft, percent):
     sorted_fft = numpy.sort(numpy.abs(fft.reshape(-1)));
 
     set_zero = upper_threshold(sorted_fft, percent, fft)
+
+    zeros = 0
+    for s in set_zero: 
+        for k in s: 
+            if k == 0 :
+                zeros = zeros + 1
+
+    print("Compression level: " + str(int(percent*100)) + " Number of zeros: " + str(zeros))
+
     inverted = inverse_fft_2D(set_zero)
     inverted = inverted[0:height,0:width]
-    print(inverted)
 
     return inverted
 
@@ -380,25 +349,25 @@ def compress_two(fft, percent):
     return inverted
 
 def compressed_subplot(fft): 
-    fig, axs = plt.subplots(2,3, figsize=(20,10))
+    fig, axs = plt.subplots(2,3, figsize=(12,7))
     percents = [0,.19,.38,.57,.76,.95]
-    count = 0;
+    count = 0
+    N, M = fft.shape
+
         
     for i in range(2): 
         for j in range(3): 
             percent= percents[count]
-            title = (str((percent*100))+"'%' compression")
-            print(percent)
+            title = (str(int(percent*100))+"% " + "compression")
             compressed = compress_fft(fft, percent)
-            print(compressed)
             axs[i,j].imshow(numpy.abs(compressed), norm=plc.LogNorm(), cmap='gray', interpolation='none')
             axs[i,j].set_title(title)
 
-            csv_name = (str(percent*100)+"_compress")
-            save_dft(compressed, csv_name)
+            csv_name = (str(int(percent*100))+"_compress")
+            #save_dft(compressed, csv_name)
             plt.savefig('compressed_subplot'+str(count)+'.svg')  
 
-            count = count + 1;
+            count = count + 1
     plt.show()
     plt.savefig('compressed_subplot.svg')  
     return
@@ -466,9 +435,7 @@ def mode_four():
     Performance testing for 2D transforms between 2^5 and 2^10
     """
     max_matrix_size = 11
-    if __debug__:
-        print("Performance testing for 2D transforms between 2^5 and 2^10")
-    
+
     # multiprocessing for performance testing
     with multiprocessing.Pool(10) as pool:
         results = pool.map(test_transforms, range(10))
